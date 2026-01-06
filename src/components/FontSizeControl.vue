@@ -63,7 +63,7 @@ onMounted(() => {
 <style scoped>
 .font-size-control {
   position: fixed;
-  bottom: 30px;
+  top: 30px;
   right: 30px;
   z-index: 9999;
 }
@@ -77,7 +77,7 @@ onMounted(() => {
 
 .control-panel {
   position: absolute;
-  bottom: 70px;
+  top: 70px;
   right: 0;
   width: 280px;
   background: #fff;
@@ -112,7 +112,7 @@ onMounted(() => {
 
 @media screen and (max-width: 768px) {
   .font-size-control {
-    bottom: 20px;
+    top: 20px;
     right: 20px;
   }
 
@@ -124,7 +124,7 @@ onMounted(() => {
 
   .control-panel {
     width: 240px;
-    bottom: 60px;
+    top: 60px;
   }
 }
 </style>

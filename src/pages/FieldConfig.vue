@@ -6,7 +6,7 @@
         <div class="search-container">
           <el-input
             v-model="searchKeyword"
-            placeholder="请输入关键词搜索"
+            placeholder="请输入字段编码或表头内容搜索"
             clearable
             class="search-input"
             @clear="handleSearch"
@@ -19,14 +19,14 @@
         </div>
         <div class="header-buttons">
           <el-button 
-            type="primary" 
+            type="success" 
             :icon="Download"
             @click="handleDownload"
           >
             配置下载
           </el-button>
           <el-button 
-            type="success" 
+            type="warning" 
             :icon="Upload"
             @click="handleUpload"
           >
@@ -38,20 +38,25 @@
 
     <div class="table-wrapper">
       <div class="table-header-controls">
-        <el-button 
-          :icon="showHiddenFields ? View : Hide"
-          @click="showHiddenFields = !showHiddenFields"
-          size="small"
-        >
-          展示隐藏字段
-        </el-button>
-        <el-button 
-          :icon="Document"
-          @click="handleDownloadManual"
-          size="small"
-        >
-          下载公式说明书
-        </el-button>
+        <div class="table-controls-left">
+          <el-button 
+            type="info"
+            :icon="showHiddenFields ? ArrowUp : ArrowDown"
+            @click="showHiddenFields = !showHiddenFields"
+            size="small"
+          >
+            {{ showHiddenFields ? '收起隐藏字段' : '展开隐藏字段' }}
+          </el-button>
+          <el-button 
+            type="primary"
+            :icon="Document"
+            @click="handleDownloadManual"
+            size="small"
+          >
+            下载公式说明书
+          </el-button>
+        </div>
+        <div class="table-controls-right"></div>
       </div>
       <el-table 
         :data="filteredTableData" 
@@ -60,23 +65,9 @@
         style="width: 100%"
         class="field-config-table"
       >
-        <el-table-column 
-          type="index" 
-          label="序号" 
-          width="80" 
-          align="center"
-        />
-        <el-table-column prop="cellCode" label="单元格编码" min-width="120">
+        <el-table-column prop="cellCode" label="字段编码" min-width="120">
           <template #default="{ row }">
-            <el-tooltip
-              :content="row.cellCode || '-'"
-              placement="top"
-              :disabled="!row.cellCode || String(row.cellCode).length <= 15"
-            >
-              <span class="text-ellipsis">
-                {{ row.cellCode || '-' }}
-              </span>
-            </el-tooltip>
+            {{ row.cellCode || '-' }}
           </template>
         </el-table-column>
         <el-table-column 
@@ -86,31 +77,15 @@
           min-width="120"
         >
           <template #default="{ row }">
-            <el-tooltip
-              :content="row.templateCode || '-'"
-              placement="top"
-              :disabled="!row.templateCode || String(row.templateCode).length <= 15"
-            >
-              <span class="text-ellipsis">
-                {{ row.templateCode || '-' }}
-              </span>
-            </el-tooltip>
+            {{ row.templateCode || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="cellProperty" label="单元格属性" min-width="120">
+        <el-table-column prop="cellProperty" label="模板参数" min-width="120">
           <template #default="{ row }">
-            <el-tooltip
-              :content="row.cellProperty || '-'"
-              placement="top"
-              :disabled="!row.cellProperty || String(row.cellProperty).length <= 15"
-            >
-              <span class="text-ellipsis">
-                {{ row.cellProperty || '-' }}
-              </span>
-            </el-tooltip>
+            {{ row.cellProperty || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="cellHead" label="表头" min-width="100">
+        <el-table-column prop="cellHead" label="表头位置" min-width="100">
           <template #default="{ row }">
             <el-input 
               v-if="row.isEditing"
@@ -133,27 +108,20 @@
               v-model="row.headContent"
               @blur="handleBlur(row, 'headContent')"
             />
-            <el-tooltip
+            <span 
               v-else
-              :content="row.headContent || '-'"
-              placement="top"
-              :disabled="!row.headContent || String(row.headContent).length <= 15"
+              @dblclick="handleRowClick(row)"
+              class="editable-cell"
             >
-              <span 
-                @dblclick="handleRowClick(row)"
-                class="editable-cell text-ellipsis"
-              >
-                {{ row.headContent || '-' }}
-              </span>
-            </el-tooltip>
+              {{ row.headContent || '-' }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="cellStartRow" label="起始行" min-width="100" align="center">
+        <el-table-column prop="cellStartRow" label="纵表起始行" min-width="120">
           <template #default="{ row }">
-            <el-input-number 
+            <el-input 
               v-if="row.isEditing"
               v-model="row.cellStartRow"
-              :min="0"
               @blur="handleBlur(row, 'cellStartRow')"
             />
             <span 
@@ -161,16 +129,15 @@
               @dblclick="handleRowClick(row)"
               class="editable-cell"
             >
-              {{ row.cellStartRow ?? '-' }}
+              {{ row.cellStartRow || '-' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="cellStartCol" label="起始列" min-width="100" align="center">
+        <el-table-column prop="cellStartCol" label="横表起始列" min-width="120">
           <template #default="{ row }">
-            <el-input-number 
+            <el-input 
               v-if="row.isEditing"
               v-model="row.cellStartCol"
-              :min="0"
               @blur="handleBlur(row, 'cellStartCol')"
             />
             <span 
@@ -178,16 +145,15 @@
               @dblclick="handleRowClick(row)"
               class="editable-cell"
             >
-              {{ row.cellStartCol ?? '-' }}
+              {{ row.cellStartCol || '-' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="cellIndex" label="单元格索引" min-width="120" align="center">
+        <el-table-column prop="cellIndex" label="所在列/行" min-width="120">
           <template #default="{ row }">
-            <el-input-number 
+            <el-input 
               v-if="row.isEditing"
               v-model="row.cellIndex"
-              :min="0"
               @blur="handleBlur(row, 'cellIndex')"
             />
             <span 
@@ -195,7 +161,7 @@
               @dblclick="handleRowClick(row)"
               class="editable-cell"
             >
-              {{ row.cellIndex ?? '-' }}
+              {{ row.cellIndex || '-' }}
             </span>
           </template>
         </el-table-column>
@@ -228,35 +194,37 @@
           min-width="200"
         >
           <template #default="{ row }">
-            <el-tooltip
-              :content="row.headFormula || '-'"
-              placement="top"
-              :disabled="!row.headFormula || String(row.headFormula).length <= 20"
-            >
-              <span class="text-ellipsis">
-                {{ row.headFormula || '-' }}
-              </span>
-            </el-tooltip>
+            {{ row.headFormula || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" align="center" fixed="right">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <div v-if="row.isEditing" class="action-buttons">
               <el-button 
                 type="primary" 
                 size="small"
+                :icon="Check"
                 @click="handleSaveRow(row)"
               >
                 保存
               </el-button>
               <el-button 
                 size="small"
+                :icon="Close"
                 @click="handleCancelRow(row)"
               >
                 取消
               </el-button>
             </div>
-            <span v-else>-</span>
+            <el-button 
+              v-else
+              type="primary" 
+              size="small"
+              :icon="Edit"
+              @click="handleEditRow(row)"
+            >
+              编辑
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -295,9 +263,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { Search, Download, Upload, View, Hide, Document, UploadFilled } from '@element-plus/icons-vue'
+import { Search, Download, Upload, Document, UploadFilled, Edit, Check, Close, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -308,6 +276,9 @@ const searchKeyword = ref('')
 // 是否显示隐藏字段
 const showHiddenFields = ref(false)
 
+// 当前模板编码（从路由参数获取）
+const currentTemplateCode = ref('')
+
 // 上传对话框
 const uploadDialogVisible = ref(false)
 const uploadRef = ref(null)
@@ -316,59 +287,60 @@ const uploadFile = ref(null)
 // 表格数据
 const tableData = ref([
   {
-    cellCode: 'A001',
+    cellCode: 'C001',
     templateCode: 'T001',
-    cellProperty: '文本',
-    cellHead: '姓名',
-    headContent: '员工姓名',
-    cellStartRow: 1,
+    cellProperty: '参数1',
+    cellHead: 'A1',
+    headContent: '姓名',
+    cellStartRow: 2,
     cellStartCol: 1,
-    cellIndex: 0,
-    cellFormula: '=SUM(A1:A10)',
+    cellIndex: 1,
+    cellFormula: '=SUM(A2:A10)',
     headFormula: '=CONCATENATE("表头",B1)',
     isEditing: false,
     originalData: null
   },
   {
-    cellCode: 'A002',
+    cellCode: 'C002',
     templateCode: 'T001',
-    cellProperty: '数字',
-    cellHead: '年龄',
-    headContent: '员工年龄',
-    cellStartRow: 1,
+    cellProperty: '参数2',
+    cellHead: 'B1',
+    headContent: '年龄',
+    cellStartRow: 2,
     cellStartCol: 2,
-    cellIndex: 1,
-    cellFormula: '=AVERAGE(B1:B10)',
+    cellIndex: 2,
+    cellFormula: '=AVERAGE(B2:B10)',
     headFormula: '=CONCATENATE("表头",B2)',
     isEditing: false,
     originalData: null
   },
   {
-    cellCode: 'A003',
+    cellCode: 'C003',
     templateCode: 'T002',
-    cellProperty: '日期',
-    cellHead: '入职日期',
-    headContent: '员工入职日期',
-    cellStartRow: 1,
+    cellProperty: '参数3',
+    cellHead: 'C1',
+    headContent: '部门',
+    cellStartRow: 2,
     cellStartCol: 3,
-    cellIndex: 2,
-    cellFormula: '=TODAY()',
+    cellIndex: 3,
+    cellFormula: '-',
     headFormula: '=CONCATENATE("表头",B3)',
     isEditing: false,
     originalData: null
   }
 ])
 
-// 过滤后的数据
+// 过滤后的数据（主要搜索字段编码和表头内容）
 const filteredTableData = computed(() => {
   if (!searchKeyword.value) {
     return tableData.value
   }
   const keyword = searchKeyword.value.toLowerCase()
   return tableData.value.filter(row => {
-    return Object.values(row).some(val => 
-      val && String(val).toLowerCase().includes(keyword)
-    )
+    // 主要搜索字段编码和表头内容
+    const cellCode = String(row.cellCode || '').toLowerCase()
+    const headContent = String(row.headContent || '').toLowerCase()
+    return cellCode.includes(keyword) || headContent.includes(keyword)
   })
 })
 
@@ -377,9 +349,20 @@ const handleSearch = () => {
   // 搜索逻辑已在 computed 中实现
 }
 
-// 点击行进入编辑模式
+// 点击行进入编辑模式（双击）
 const handleRowClick = (row) => {
   if (row.isEditing) return
+  handleEditRow(row)
+}
+
+// 点击编辑按钮进入编辑模式
+const handleEditRow = (row) => {
+  // 检查是否有其他行正在编辑
+  const otherEditing = tableData.value.find(r => r !== row && r.isEditing)
+  if (otherEditing) {
+    ElMessage.warning('请先完成或取消当前编辑')
+    return
+  }
   row.originalData = { ...row }
   row.isEditing = true
 }
@@ -467,6 +450,36 @@ const handleDownloadManual = () => {
   ElMessage.info('公式说明书下载功能')
   // 这里可以实现实际的下载逻辑
 }
+
+// 获取字段配置数据
+const fetchFieldConfigData = async () => {
+  try {
+    // 从路由参数获取模板编码
+    currentTemplateCode.value = route.query.templateCode || ''
+    
+    // 调用后端接口获取数据
+    // const response = await getFieldConfigList({ templateCode: currentTemplateCode.value })
+    // tableData.value = response.data.map(item => ({
+    //   ...item,
+    //   isEditing: false,
+    //   originalData: null
+    // }))
+    
+    // 模拟数据（实际应该从后端获取）
+    // 如果从路由参数获取到 templateCode，可以过滤数据
+    if (currentTemplateCode.value) {
+      // 这里可以根据 templateCode 过滤数据
+      // 当前使用模拟数据，实际应该调用后端接口
+    }
+  } catch (error) {
+    ElMessage.error('数据加载失败：' + error.message)
+  }
+}
+
+// 初始化
+onMounted(() => {
+  fetchFieldConfigData()
+})
 </script>
 
 <style scoped>
@@ -488,11 +501,12 @@ const handleDownloadManual = () => {
   flex-wrap: wrap;
   gap: 1rem;
   width: 100%;
+  position: relative;
 }
 
 .header h2 {
   margin: 0;
-  font-size: clamp(1.125rem, 2vw, 1.75rem);
+  font-size: calc(var(--base-font-size, 14px) * 1.25);
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -506,12 +520,14 @@ const handleDownloadManual = () => {
   flex: 1;
   position: relative;
   min-height: 40px;
+  justify-content: center;
 }
 
 .search-container {
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 100%;
   max-width: 600px;
   z-index: 1;
@@ -546,9 +562,19 @@ const handleDownloadManual = () => {
   gap: 1rem;
 }
 
+.table-controls-left {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.table-controls-right {
+  flex: 1;
+}
+
 .field-config-table {
   width: 100%;
-  font-size: clamp(1rem, 1.2vw, 1.125rem);
+  font-size: var(--base-font-size, 14px);
 }
 
 .field-config-table :deep(.el-table__cell) {
@@ -593,7 +619,7 @@ const handleDownloadManual = () => {
   }
 
   .header h2 {
-    font-size: 1.25rem;
+    font-size: calc(var(--base-font-size, 14px) * 1.125);
     text-align: center;
   }
 
@@ -628,8 +654,17 @@ const handleDownloadManual = () => {
     align-items: stretch;
   }
 
+  .table-controls-left {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .table-controls-left .el-button {
+    width: 100%;
+  }
+
   .field-config-table {
-    font-size: 0.9375rem;
+    font-size: calc(var(--base-font-size, 14px) * 0.875);
   }
 
   .field-config-table :deep(.el-table__cell) {
@@ -643,15 +678,16 @@ const handleDownloadManual = () => {
   }
 
   .header h2 {
-    font-size: 1.25rem;
+    font-size: calc(var(--base-font-size, 14px) * 1.125);
   }
 
   .search-container {
-    position: static;
-    transform: none;
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     max-width: 400px;
-    margin: 0;
+    width: 100%;
   }
 
   .header-buttons {
@@ -666,11 +702,12 @@ const handleDownloadManual = () => {
   }
 
   .search-container {
-    position: static;
-    transform: none;
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     max-width: 500px;
-    margin: 0;
+    width: 100%;
   }
 
   .header-buttons {
@@ -685,15 +722,16 @@ const handleDownloadManual = () => {
   }
 
   .header h2 {
-    font-size: 1.5rem;
+    font-size: calc(var(--base-font-size, 14px) * 1.25);
   }
 
   .search-container {
-    position: static;
-    transform: none;
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     max-width: 550px;
-    margin: 0;
+    width: 100%;
   }
 
   .header-buttons {
@@ -708,15 +746,16 @@ const handleDownloadManual = () => {
   }
 
   .header h2 {
-    font-size: 1.625rem;
+    font-size: calc(var(--base-font-size, 14px) * 1.375);
   }
 
   .search-container {
-    position: static;
-    transform: none;
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     max-width: 600px;
-    margin: 0;
+    width: 100%;
   }
 
   .header-buttons {
@@ -731,15 +770,16 @@ const handleDownloadManual = () => {
   }
 
   .header h2 {
-    font-size: 1.75rem;
+    font-size: calc(var(--base-font-size, 14px) * 1.5);
   }
 
   .search-container {
-    position: static;
-    transform: none;
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     max-width: 700px;
-    margin: 0;
+    width: 100%;
   }
 
   .header-buttons {
@@ -747,7 +787,7 @@ const handleDownloadManual = () => {
   }
 
   .field-config-table {
-    font-size: 1.125rem;
+    font-size: calc(var(--base-font-size, 14px) * 1.125);
   }
 }
 </style>
