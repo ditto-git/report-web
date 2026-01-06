@@ -1,0 +1,22 @@
+{
+  "name": "component",
+  "version": "1.0.0",
+  "description": "组件管理系统 - 包含报表管理浏览和字段配置页面",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "element-plus": "^2.4.4",
+    "vue": "^3.3.4",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.0",
+    "vite": "^5.0.0"
+  }
+}
+

@@ -1,0 +1,24 @@
+/* Element Plus 全局样式覆盖 */
+
+/* 下拉选项居中 */
+:global(.el-select-dropdown__item) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+:global(.el-select-dropdown__item.is-selected) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+:global(.el-select-dropdown__item:hover) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+

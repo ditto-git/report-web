@@ -1,0 +1,49 @@
+/* 字体大小统一控制 */
+
+/* Element Plus 表格 */
+.el-table {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+.el-table th,
+.el-table td {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+/* Element Plus 按钮 */
+.el-button {
+  font-size: calc(var(--base-font-size, 14px) * 0.875) !important;
+}
+
+/* Element Plus 输入框 */
+.el-input__inner,
+.el-input__wrapper input {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+.el-select .el-input__inner {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+.el-input-number .el-input__inner {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+/* 表格内的输入框 */
+.el-table .el-input__inner {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+.el-table .el-input-number .el-input__inner {
+  font-size: var(--base-font-size, 14px) !important;
+}
+
+/* 操作按钮 */
+.action-buttons .el-button {
+  font-size: calc(var(--base-font-size, 14px) * 0.875) !important;
+}
+
+.el-table .el-button {
+  font-size: calc(var(--base-font-size, 14px) * 0.875) !important;
+}
+
