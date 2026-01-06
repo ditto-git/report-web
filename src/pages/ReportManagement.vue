@@ -110,15 +110,9 @@
             <el-option label="自定义" :value="0" />
            
           </el-select>
-          <el-tooltip
-            v-else
-            :content="getTemplateTypeText(row.templateType)"
-            placement="top"
-          >
-            <span class="text-ellipsis">
-              {{ getTemplateTypeText(row.templateType) }}
-            </span>
-          </el-tooltip>
+          <span v-else>
+            {{ getTemplateTypeText(row.templateType) }}
+          </span>
         </template>
       </el-table-column>
 
