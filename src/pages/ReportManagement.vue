@@ -43,6 +43,7 @@
         :data="filteredTableData" 
         border 
         stripe
+        v-loading="loading"
         style="width: 100%"
         class="report-table"
         @selection-change="handleSelectionChange"
@@ -266,52 +267,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Delete, DocumentChecked, Upload, Download, View, Folder } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { createTemplate, getTemplateList } from '@/api/reportManagement'
 
 const router = useRouter()
 
 // 表格数据
-const tableData = ref([
-  {
-    templateCode: 'T001',
-    templateName: '销售报表',
-    templateType: 0,
-    templateUrl: '/templates/sales.xlsx',
-    fileName: 'sales_report.xlsx',
-    templateStatus: 1,
-    isNew: false,
-    isEditing: false,
-    touched: false,
-    saving: false
-  },
-  {
-    templateCode: 'T002',
-    templateName: '财务报表',
-    templateType: 1,
-    templateUrl: '/templates/finance.xlsx',
-    fileName: 'finance_report.xlsx',
-    templateStatus: 0,
-    isNew: false,
-    isEditing: false,
-    touched: false,
-    saving: false
-  },
-  {
-    templateCode: 'T003',
-    templateName: '库存管理报表模板文件名称较长时测试',
-    templateType: 0,
-    templateUrl: '',
-    fileName: '',
-    templateStatus: 0,
-    isNew: false,
-    isEditing: false,
-    touched: false,
-    saving: false
-  }
-])
+const tableData = ref([])
+
+// 加载状态
+const loading = ref(false)
 
 // 存储原始数据，用于取消编辑时恢复
 const originalDataMap = new Map()
@@ -327,18 +295,9 @@ const hasNewRow = computed(() => {
   return tableData.value.some(row => row.isNew || row.isEditing)
 })
 
-// 过滤后的表格数据
+// 过滤后的表格数据（现在直接使用 tableData，搜索由后端处理）
 const filteredTableData = computed(() => {
-  if (!searchKeyword.value.trim()) {
-    return tableData.value
-  }
-  const keyword = searchKeyword.value.trim().toLowerCase()
-  return tableData.value.filter(row => {
-    return (
-      row.templateCode?.toLowerCase().includes(keyword) ||
-      row.templateName?.toLowerCase().includes(keyword)
-    )
-  })
+  return tableData.value
 })
 
 // 获取操作列标题
@@ -448,29 +407,46 @@ const handleSaveRow = async (row, index) => {
   try {
     row.saving = true
     
-    // 这里调用保存接口
-    // if (row.isNew) {
-    //   await createReport(row)
-    // } else {
-    //   await updateReport(row)
-    // }
-    
-    // 模拟保存延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // 保存成功后，清除编辑状态
+    // 新建模板 - 调用后端接口
     if (row.isNew) {
+      // TODO: 待完善响应格式处理，当前仅判断200状态码
+      // 构建请求参数
+      const requestData = {
+        templateCode: row.templateCode.trim(),
+        templateUrl: row.templateUrl || '',
+        templateTable: 'sys_report_template', // TODO: 确认是否需要从配置或用户输入获取
+        templateName: row.templateName.trim(),
+        fileName: row.fileName || '',
+        templateType: String(row.templateType || '1'), // 转换为字符串
+        templateStatus: String(row.templateStatus || '1') // 转换为字符串
+      }
+      
+      // 调用创建接口
+      await createTemplate(requestData)
+      
+      // 接口返回200表示成功（已在request.js中处理）
+      ElMessage.success('创建成功')
+      
+      // 保存成功后，清除新建状态
       row.isNew = false
+      
+      // 刷新列表数据
+      await fetchTableData(searchKeyword.value.trim())
+    } else {
+      // TODO: 更新模板接口待实现
+      // await updateTemplate(row.id, updateData)
+      ElMessage.success('更新成功')
     }
+    
     row.isEditing = false
     row.touched = false
     
     // 清除原始数据
     originalDataMap.delete(row)
-    
-    ElMessage.success('保存成功')
   } catch (error) {
-    ElMessage.error('保存失败：' + error.message)
+    // 错误已在 request.js 的响应拦截器中处理，这里只显示通用错误
+    ElMessage.error('操作失败，请重试')
+    console.error('保存失败:', error)
   } finally {
     row.saving = false
   }
@@ -496,9 +472,43 @@ const handleCancelRow = (row, index) => {
   }
 }
 
+// 获取模板列表数据
+const fetchTableData = async (searchValue = '') => {
+  try {
+    loading.value = true
+    const response = await getTemplateList(searchValue)
+    
+    // 处理响应数据，映射到表格数据格式
+    // 后端返回的 templateType 和 templateStatus 是字符串，需要转换为数字
+    tableData.value = (response || []).map(item => ({
+      templateCode: item.templateCode || '',
+      templateName: item.templateName || '',
+      templateType: parseInt(item.templateType) || 0, // 字符串转数字
+      templateUrl: item.templateUrl || '',
+      fileName: item.fileName || '',
+      templateStatus: item.templateStatus !== null && item.templateStatus !== undefined 
+        ? parseInt(item.templateStatus) 
+        : 0, // 字符串转数字，null/undefined 转为 0
+      templateTable: item.templateTable || '', // 保存 templateTable 字段
+      isNew: false,
+      isEditing: false,
+      touched: false,
+      saving: false
+    }))
+  } catch (error) {
+    console.error('获取模板列表失败:', error)
+    ElMessage.error('获取模板列表失败')
+    // 失败时保持空数组或使用默认数据
+    tableData.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
 // 搜索功能
 const handleSearch = () => {
-  // 搜索逻辑已通过 computed 实现，这里可以添加其他逻辑
+  const keyword = searchKeyword.value.trim()
+  fetchTableData(keyword)
 }
 
 // 选择变化处理
@@ -679,6 +689,11 @@ const handleFileChange = async (file, row) => {
     uploadRef?.clearFiles()
   }
 }
+
+// 页面初始化时加载数据
+onMounted(() => {
+  fetchTableData()
+})
 </script>
 
 <style scoped>

@@ -5,18 +5,20 @@ import request from '@/utils/request'
  */
 
 // 获取模板列表
-export function getTemplateList(params) {
+// select 参数：模板编码或模板名（可选，用于搜索）
+export function getTemplateList(select = '') {
   return request({
-    url: '/report/templates',
+    url: '/ExTemplateConsole/selectExTemplate',
     method: 'get',
-    params
+    params: select ? { select } : {} // 如果有搜索关键词，传递 select 参数
   })
 }
 
 // 创建模板
+// TODO: 待完善响应格式处理，当前仅判断200状态码
 export function createTemplate(data) {
   return request({
-    url: '/report/templates',
+    url: '/ExTemplateConsole/initExTemplate',
     method: 'post',
     data
   })
@@ -70,5 +72,6 @@ export function downloadTemplateFile(id) {
     responseType: 'blob'
   })
 }
+
 
 

@@ -3,7 +3,9 @@ import { ElMessage } from 'element-plus'
 
 // 创建 axios 实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api', // 从环境变量获取，默认值
+  // 使用相对路径，通过 Vite 代理转发到后端
+  // 如需直接请求，可改为: 'http://localhost:8080/ditto'
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/ditto',
   timeout: 30000, // 请求超时时间
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'
@@ -13,12 +15,30 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
-    // 在发送请求之前做些什么
+    // TODO: 权限认证 - 后端完成权限功能后启用
     // 可以在这里添加 token
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // const token = localStorage.getItem('token') || localStorage.getItem('accessToken') || localStorage.getItem('authToken')
+    // if (token) {
+    //   // 根据后端要求选择认证方式
+    //   // 方式1: Bearer Token (默认)
+    //   config.headers.Authorization = `Bearer ${token}`
+    //   // 方式2: 直接使用 token (如果后端不需要 Bearer 前缀)
+    //   // config.headers.Authorization = token
+    //   // 方式3: 使用自定义请求头 (如果后端要求)
+    //   // config.headers['X-Auth-Token'] = token
+    //   // config.headers['token'] = token
+    // }
+    
+    // 打印请求信息（开发环境）
+    if (import.meta.env.DEV) {
+      console.log('请求配置:', {
+        url: config.url,
+        method: config.method,
+        baseURL: config.baseURL,
+        fullURL: `${config.baseURL}${config.url}`
+      })
     }
+    
     return config
   },
   error => {
@@ -66,7 +86,15 @@ service.interceptors.response.use(
           // router.push('/login')
           break
         case 403:
-          message = '拒绝访问'
+          message = '拒绝访问（403），可能是 CORS 跨域问题，请检查后端配置或使用代理'
+          // TODO: 权限认证 - 后端完成权限功能后，这里可以添加 token 相关处理
+          console.error('403 错误详情:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            fullURL: `${error.config?.baseURL}${error.config?.url}`,
+            headers: error.config?.headers,
+            response: error.response?.data
+          })
           break
         case 404:
           message = '请求地址不存在'
@@ -88,5 +116,6 @@ service.interceptors.response.use(
 )
 
 export default service
+
 
 
