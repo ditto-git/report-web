@@ -13,7 +13,7 @@
             @keyup.enter="handleSearch"
           >
             <template #prefix>
-              <el-icon><Search /></el-icon>
+              <el-icon class="search-icon" @click="handleSearch"><Search /></el-icon>
             </template>
           </el-input>
         </div>
@@ -271,7 +271,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Delete, DocumentChecked, Upload, Download, View, Folder } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createTemplate, getTemplateList } from '@/api/reportManagement'
+import { createTemplate, getTemplateList, batchDeleteTemplates, updateTemplate, updateTemplateStatus, uploadExTemplate, downloadExTemplate } from '@/api/reportManagement'
 
 const router = useRouter()
 
@@ -379,18 +379,16 @@ const handleBlur = (row, field) => {
 // 保存单行
 const handleSaveRow = async (row, index) => {
   // 验证必填字段
-  if (row.isNew) {
-    row.touched = true
-    
-    if (!row.templateCode || !row.templateCode.trim()) {
-      ElMessage.error('模板编码不能为空')
-      return
-    }
-    
-    if (!row.templateName || !row.templateName.trim()) {
-      ElMessage.error('模板名不能为空')
-      return
-    }
+  row.touched = true
+  
+  if (!row.templateCode || !row.templateCode.trim()) {
+    ElMessage.error('模板编码不能为空')
+    return
+  }
+  
+  if (!row.templateName || !row.templateName.trim()) {
+    ElMessage.error('模板名不能为空')
+    return
   }
 
   // 检查模板编码是否重复（排除当前行）
@@ -414,7 +412,7 @@ const handleSaveRow = async (row, index) => {
       const requestData = {
         templateCode: row.templateCode.trim(),
         templateUrl: row.templateUrl || '',
-        templateTable: 'sys_report_template', // TODO: 确认是否需要从配置或用户输入获取
+        templateTable: row.templateTable || 'sys_report_template', // 使用行数据中的 templateTable，如果没有则使用默认值
         templateName: row.templateName.trim(),
         fileName: row.fileName || '',
         templateType: String(row.templateType || '1'), // 转换为字符串
@@ -433,9 +431,29 @@ const handleSaveRow = async (row, index) => {
       // 刷新列表数据
       await fetchTableData(searchKeyword.value.trim())
     } else {
-      // TODO: 更新模板接口待实现
-      // await updateTemplate(row.id, updateData)
+      // 更新模板 - 调用后端接口
+      // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+      // 构建请求参数
+      // 注意：更新时直接使用原始值，不要使用默认值覆盖（包括 0 值）
+      const requestData = {
+        templateCode: row.templateCode.trim(),
+        templateUrl: row.templateUrl || '',
+        templateTable: row.templateTable || 'sys_report_template', // 使用行数据中的 templateTable，如果没有则使用默认值
+        templateName: row.templateName.trim(),
+        fileName: row.fileName || '',
+        // 使用 nullish coalescing (??) 来正确处理 0 值，只有在 undefined 或 null 时才使用默认值
+        templateType: String(row.templateType ?? '1'),
+        templateStatus: String(row.templateStatus ?? '1')
+      }
+      
+      // 调用更新接口
+      await updateTemplate(requestData)
+      
+      // 接口返回200表示成功（已在request.js中处理）
       ElMessage.success('更新成功')
+      
+      // 刷新列表数据
+      await fetchTableData(searchKeyword.value.trim())
     }
     
     row.isEditing = false
@@ -542,68 +560,104 @@ const handleBatchDelete = async () => {
       return
     }
 
-    // 获取要删除的行的模板编码
-    const codesToDelete = rowsToDelete.map(row => row.templateCode)
+    // 获取要删除的行的模板编码数组
+    const codesToDelete = rowsToDelete.map(row => row.templateCode).filter(Boolean)
+    
+    if (codesToDelete.length === 0) {
+      ElMessage.warning('选中的数据中没有有效的模板编码')
+      return
+    }
 
-    // 从表格数据中删除
-    tableData.value = tableData.value.filter(row => !codesToDelete.includes(row.templateCode))
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用批量删除接口
+    await batchDeleteTemplates(codesToDelete)
+
+    // 接口返回200表示成功（已在request.js中处理）
+    ElMessage.success(`成功删除 ${rowsToDelete.length} 条数据`)
 
     // 清除选中状态
     selectedRows.value = []
 
-    ElMessage.success(`成功删除 ${rowsToDelete.length} 条数据`)
+    // 刷新列表数据
+    await fetchTableData(searchKeyword.value.trim())
   } catch (error) {
     // 用户取消删除
     if (error !== 'cancel') {
-      ElMessage.error('删除失败：' + error.message)
+      // 错误已在 request.js 的响应拦截器中处理，这里只显示通用错误
+      ElMessage.error('删除失败，请重试')
+      console.error('批量删除失败:', error)
     }
   }
 }
 
 // 模板状态切换
-const handleStatusChange = (row) => {
-  // 状态切换时的处理逻辑
-  // 如果需要立即保存，可以在这里调用保存接口
-  // await updateTemplateStatus(row.templateCode, row.templateStatus)
+const handleStatusChange = async (row) => {
+  // 保存原始状态，以便失败时回滚
+  const originalStatus = row.templateStatus === 1 ? 0 : 1
   
-  // 暂时只显示提示信息
-  const statusText = row.templateStatus === 1 ? '使用中' : '维护中'
-  ElMessage.success(`模板状态已切换为：${statusText}`)
+  try {
+    // 构建请求参数
+    const requestData = {
+      templateCode: row.templateCode,
+      templateStatus: String(row.templateStatus) // 转换为字符串
+    }
+    
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用更新状态接口
+    await updateTemplateStatus(requestData)
+    
+    // 接口返回200表示成功（已在request.js中处理）
+    const statusText = row.templateStatus === 1 ? '使用中' : '维护中'
+    ElMessage.success(`模板状态已切换为：${statusText}`)
+  } catch (error) {
+    // 如果失败，回滚状态
+    row.templateStatus = originalStatus
+    
+    // 错误已在 request.js 的响应拦截器中处理，这里只显示通用错误
+    ElMessage.error('状态更新失败，请重试')
+    console.error('状态更新失败:', error)
+  }
 }
 
 // 模板下载
-const handleDownload = (row) => {
-  if (!row.templateUrl) {
-    ElMessage.warning('模板路径为空，无法下载')
+const handleDownload = async (row) => {
+  if (!row.templateCode) {
+    ElMessage.warning('模板编码为空，无法下载')
     return
   }
   
   try {
-    // 这里调用下载接口
-    // 方式1：直接下载文件
-    // window.open(row.templateUrl, '_blank')
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用下载接口
+    const response = await downloadExTemplate(row.templateCode)
     
-    // 方式2：通过API下载
-    // downloadTemplate(row.templateCode).then(res => {
-    //   // 创建下载链接
-    //   const url = window.URL.createObjectURL(new Blob([res.data]))
-    //   const link = document.createElement('a')
-    //   link.href = url
-    //   link.setAttribute('download', row.fileName || `${row.templateName}.xlsx`)
-    //   document.body.appendChild(link)
-    //   link.click()
-    //   document.body.removeChild(link)
-    //   window.URL.revokeObjectURL(url)
-    //   ElMessage.success('下载成功')
-    // }).catch(err => {
-    //   ElMessage.error('下载失败：' + err.message)
-    // })
+    // 创建下载链接
+    const blob = new Blob([response], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
     
-    // 临时模拟下载
-    ElMessage.info(`准备下载模板：${row.templateName}`)
-    console.log('下载模板:', row.templateUrl)
+    // 使用文件名，如果没有则使用模板名
+    const fileName = row.fileName || row.templateName || row.templateCode
+    // 确保文件名有扩展名
+    const downloadFileName = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') 
+      ? fileName 
+      : `${fileName}.xlsx`
+    
+    link.setAttribute('download', downloadFileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    // 接口返回200表示成功（已在request.js中处理）
+    ElMessage.success('下载成功')
   } catch (error) {
-    ElMessage.error('下载失败：' + error.message)
+    // 错误已在 request.js 的响应拦截器中处理，这里只显示通用错误
+    ElMessage.error('下载失败，请重试')
+    console.error('模板下载失败:', error)
   }
 }
 
@@ -662,29 +716,25 @@ const handleFileChange = async (file, row) => {
     // 保存原始模板路径，用于判断是上传还是更新
     const isUpdate = !!row.templateUrl
     
-    // 这里可以处理文件上传逻辑
-    // 例如：调用API上传文件
-    // const formData = new FormData()
-    // formData.append('file', file.raw)
-    // formData.append('templateCode', row.templateCode)
-    // const res = await uploadTemplate(formData)
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用上传接口
+    await uploadExTemplate(row.templateCode, file.raw)
     
-    // 模拟上传延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // 更新模板路径（这里使用文件名为示例，实际应该使用服务器返回的路径）
-    // row.templateUrl = res.data.templateUrl
-    // row.fileName = file.name
-    row.templateUrl = `/templates/${file.name}`
-    row.fileName = file.name
-    
+    // 接口返回200表示成功（已在request.js中处理）
     ElMessage.success(isUpdate ? '模板更新成功' : '模板上传成功')
     
     // 清除文件选择，允许重复选择同一文件
     const uploadRef = uploadRefsMap.get(row)
     uploadRef?.clearFiles()
+    
+    // 刷新列表数据，获取服务器返回的最新模板路径和文件名
+    await fetchTableData(searchKeyword.value.trim())
   } catch (error) {
-    ElMessage.error('模板上传失败：' + error.message)
+    // 错误已在 request.js 的响应拦截器中处理，这里只显示通用错误
+    ElMessage.error('模板上传失败，请重试')
+    console.error('模板上传失败:', error)
+    
+    // 清除文件选择
     const uploadRef = uploadRefsMap.get(row)
     uploadRef?.clearFiles()
   }
@@ -748,6 +798,15 @@ onMounted(() => {
 
 .search-input {
   width: 100%;
+}
+
+.search-icon {
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.search-icon:hover {
+  color: var(--el-color-primary);
 }
 
 .header-buttons {

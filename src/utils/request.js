@@ -51,6 +51,11 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   response => {
+    // 如果是 blob 响应（文件下载），直接返回 blob 数据
+    if (response.config.responseType === 'blob' || response.data instanceof Blob) {
+      return response.data
+    }
+    
     // 对响应数据做点什么
     const res = response.data
     
