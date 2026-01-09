@@ -6,14 +6,14 @@
         <div class="search-container">
           <el-input
             v-model="searchKeyword"
-            placeholder="请输入字段编码或表头内容搜索"
+            placeholder="请输入字段编码、模板参数或表头内容搜索"
             clearable
             class="search-input"
             @clear="handleSearch"
             @keyup.enter="handleSearch"
           >
             <template #prefix>
-              <el-icon><Search /></el-icon>
+              <el-icon class="search-icon" @click="handleSearch"><Search /></el-icon>
             </template>
           </el-input>
         </div>
@@ -59,11 +59,12 @@
         <div class="table-controls-right"></div>
       </div>
       <el-table 
-        :data="filteredTableData" 
+        :data="tableData" 
         border 
         stripe
         style="width: 100%"
         class="field-config-table"
+        v-loading="loading"
       >
         <el-table-column prop="cellCode" label="字段编码" min-width="120">
           <template #default="{ row }">
@@ -241,7 +242,7 @@
         :auto-upload="false"
         :on-change="handleFileChange"
         :before-upload="beforeUpload"
-        accept=".json"
+        accept=".xlsx,.xls,.json"
         drag
       >
         <el-icon class="el-icon--upload"><upload-filled /></el-icon>
@@ -250,7 +251,7 @@
         </div>
         <template #tip>
           <div class="el-upload__tip">
-            只能上传 JSON 格式文件
+            支持上传 Excel (.xlsx, .xls) 或 JSON (.json) 格式文件
           </div>
         </template>
       </el-upload>
@@ -267,6 +268,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { Search, Download, Upload, Document, UploadFilled, Edit, Check, Close, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getExTemplateInfo, updateExTemplateCell, uploadExCells, downloadExCells } from '@/api/fieldConfig'
 
 const route = useRoute()
 
@@ -285,68 +287,14 @@ const uploadRef = ref(null)
 const uploadFile = ref(null)
 
 // 表格数据
-const tableData = ref([
-  {
-    cellCode: 'C001',
-    templateCode: 'T001',
-    cellProperty: '参数1',
-    cellHead: 'A1',
-    headContent: '姓名',
-    cellStartRow: 2,
-    cellStartCol: 1,
-    cellIndex: 1,
-    cellFormula: '=SUM(A2:A10)',
-    headFormula: '=CONCATENATE("表头",B1)',
-    isEditing: false,
-    originalData: null
-  },
-  {
-    cellCode: 'C002',
-    templateCode: 'T001',
-    cellProperty: '参数2',
-    cellHead: 'B1',
-    headContent: '年龄',
-    cellStartRow: 2,
-    cellStartCol: 2,
-    cellIndex: 2,
-    cellFormula: '=AVERAGE(B2:B10)',
-    headFormula: '=CONCATENATE("表头",B2)',
-    isEditing: false,
-    originalData: null
-  },
-  {
-    cellCode: 'C003',
-    templateCode: 'T002',
-    cellProperty: '参数3',
-    cellHead: 'C1',
-    headContent: '部门',
-    cellStartRow: 2,
-    cellStartCol: 3,
-    cellIndex: 3,
-    cellFormula: '-',
-    headFormula: '=CONCATENATE("表头",B3)',
-    isEditing: false,
-    originalData: null
-  }
-])
+const tableData = ref([])
 
-// 过滤后的数据（主要搜索字段编码和表头内容）
-const filteredTableData = computed(() => {
-  if (!searchKeyword.value) {
-    return tableData.value
-  }
-  const keyword = searchKeyword.value.toLowerCase()
-  return tableData.value.filter(row => {
-    // 主要搜索字段编码和表头内容
-    const cellCode = String(row.cellCode || '').toLowerCase()
-    const headContent = String(row.headContent || '').toLowerCase()
-    return cellCode.includes(keyword) || headContent.includes(keyword)
-  })
-})
+// 加载状态
+const loading = ref(false)
 
 // 搜索
-const handleSearch = () => {
-  // 搜索逻辑已在 computed 中实现
+const handleSearch = async () => {
+  await fetchFieldConfigData()
 }
 
 // 点击行进入编辑模式（双击）
@@ -368,11 +316,48 @@ const handleEditRow = (row) => {
 }
 
 // 保存行
-const handleSaveRow = (row) => {
-  // 这里可以添加验证逻辑
-  row.isEditing = false
-  row.originalData = null
-  ElMessage.success('保存成功')
+const handleSaveRow = async (row) => {
+  try {
+    // 验证必填字段
+    if (!row.cellCode) {
+      ElMessage.warning('字段编码不能为空')
+      return
+    }
+    
+    if (!currentTemplateCode.value) {
+      ElMessage.warning('缺少模板编码，无法保存')
+      return
+    }
+    
+    // 构建请求参数
+    const requestData = {
+      templateCode: currentTemplateCode.value,
+      cellCode: row.cellCode || '',
+      cellProperty: row.cellProperty || '',
+      headContent: row.headContent || '',
+      cellHead: row.cellHead || '',
+      cellStartRow: row.cellStartRow || '',
+      cellStartCol: row.cellStartCol || '',
+      cellIndex: row.cellIndex || '',
+      cellFormula: row.cellFormula || null,
+      headFormula: row.headFormula || null
+    }
+    
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用后端接口保存数据
+    await updateExTemplateCell(requestData)
+    
+    // 保存成功
+    row.isEditing = false
+    row.originalData = null
+    ElMessage.success('保存成功')
+    
+    // 可选：刷新数据以确保数据同步
+    // await fetchFieldConfigData()
+  } catch (error) {
+    ElMessage.error('保存失败：' + (error.message || '未知错误'))
+    console.error('保存字段配置失败:', error)
+  }
 }
 
 // 取消编辑
@@ -390,18 +375,42 @@ const handleBlur = (row, field) => {
 }
 
 // 配置下载
-const handleDownload = () => {
-  const dataStr = JSON.stringify(tableData.value, null, 2)
-  const blob = new Blob([dataStr], { type: 'application/json' })
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', `字段配置_${new Date().getTime()}.json`)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.URL.revokeObjectURL(url)
-  ElMessage.success('配置下载成功')
+const handleDownload = async () => {
+  try {
+    if (!currentTemplateCode.value) {
+      ElMessage.warning('缺少模板编码，无法下载')
+      return
+    }
+    
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用后端接口下载文件
+    const response = await downloadExCells({
+      templateCode: currentTemplateCode.value
+    })
+    
+    // 创建下载链接
+    const blob = new Blob([response], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    // 生成文件名
+    const fileName = `字段配置_${currentTemplateCode.value}_${new Date().getTime()}.xlsx`
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    // 接口返回200表示成功（已在request.js中处理）
+    ElMessage.success('配置下载成功')
+  } catch (error) {
+    // 错误已在 request.js 的响应拦截器中处理，这里只显示通用错误
+    ElMessage.error('下载失败，请重试')
+    console.error('下载字段配置失败:', error)
+  }
 }
 
 // 配置上传
@@ -416,33 +425,51 @@ const handleFileChange = (file) => {
 
 // 上传前验证
 const beforeUpload = (file) => {
-  const isJSON = file.type === 'application/json' || file.name.endsWith('.json')
-  if (!isJSON) {
-    ElMessage.error('只能上传 JSON 格式文件')
+  const fileName = file.name || ''
+  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+  const isJSON = fileName.endsWith('.json') || file.type === 'application/json'
+  
+  if (!isExcel && !isJSON) {
+    ElMessage.error('只能上传 Excel (.xlsx, .xls) 或 JSON (.json) 格式文件')
     return false
   }
   return false // 阻止自动上传
 }
 
 // 确认上传
-const confirmUpload = () => {
+const confirmUpload = async () => {
   if (!uploadFile.value) {
     ElMessage.warning('请选择要上传的文件')
     return
   }
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result)
-      tableData.value = data
-      ElMessage.success('配置上传成功')
-      uploadDialogVisible.value = false
-      uploadFile.value = null
-    } catch (error) {
-      ElMessage.error('文件格式错误，请检查 JSON 格式')
+  
+  try {
+    // 验证文件类型（允许 Excel 和 JSON 格式）
+    const file = uploadFile.value.raw || uploadFile.value
+    const fileName = file.name || ''
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+    const isJSON = fileName.endsWith('.json')
+    
+    if (!isExcel && !isJSON) {
+      ElMessage.error('只能上传 Excel (.xlsx, .xls) 或 JSON (.json) 格式文件')
+      return
     }
+    
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用后端接口上传文件
+    await uploadExCells(file)
+    
+    // 上传成功
+    ElMessage.success('配置上传成功')
+    uploadDialogVisible.value = false
+    uploadFile.value = null
+    
+    // 刷新数据以显示最新配置
+    await fetchFieldConfigData()
+  } catch (error) {
+    ElMessage.error('上传失败：' + (error.message || '未知错误'))
+    console.error('上传字段配置失败:', error)
   }
-  reader.readAsText(uploadFile.value.raw)
 }
 
 // 下载公式说明书
@@ -457,22 +484,47 @@ const fetchFieldConfigData = async () => {
     // 从路由参数获取模板编码
     currentTemplateCode.value = route.query.templateCode || ''
     
-    // 调用后端接口获取数据
-    // const response = await getFieldConfigList({ templateCode: currentTemplateCode.value })
-    // tableData.value = response.data.map(item => ({
-    //   ...item,
-    //   isEditing: false,
-    //   originalData: null
-    // }))
+    // 如果没有模板编码，提示用户
+    if (!currentTemplateCode.value) {
+      ElMessage.warning('缺少模板编码参数，请从报表管理页面进入')
+      return
+    }
     
-    // 模拟数据（实际应该从后端获取）
-    // 如果从路由参数获取到 templateCode，可以过滤数据
-    if (currentTemplateCode.value) {
-      // 这里可以根据 templateCode 过滤数据
-      // 当前使用模拟数据，实际应该调用后端接口
+    loading.value = true
+    
+    // 构建请求参数
+    const keyword = searchKeyword.value?.trim() || ''
+    const requestParams = {
+      templateCode: currentTemplateCode.value,
+      cellCode: keyword, // 搜索关键词传递到 cellCode
+      cellProperty: keyword, // 搜索关键词传递到 cellProperty
+      headContent: keyword // 搜索关键词也传递到 headContent，让后端处理匹配逻辑
+    }
+    
+    // TODO: 待完善响应格式处理，当前仅判断200状态码，后续会提供完整的响应示例
+    // 调用后端接口获取数据
+    const response = await getExTemplateInfo(requestParams)
+    
+    // 处理响应数据
+    // 如果后端返回的是数组，直接使用；如果返回的是对象包含 data 字段，使用 data
+    const dataList = Array.isArray(response) ? response : (response.data || [])
+    
+    // 映射数据，添加编辑状态
+    tableData.value = dataList.map(item => ({
+      ...item,
+      isEditing: false,
+      originalData: null
+    }))
+    
+    // 如果搜索后没有结果，提示用户
+    if (keyword && tableData.value.length === 0) {
+      ElMessage.info('未找到匹配的字段配置')
     }
   } catch (error) {
-    ElMessage.error('数据加载失败：' + error.message)
+    ElMessage.error('数据加载失败：' + (error.message || '未知错误'))
+    console.error('获取字段配置数据失败:', error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -535,6 +587,15 @@ onMounted(() => {
 
 .search-input {
   width: 100%;
+}
+
+.search-icon {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.search-icon:hover {
+  color: var(--el-color-primary);
 }
 
 .header-buttons {

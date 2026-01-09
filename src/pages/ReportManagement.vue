@@ -661,13 +661,15 @@ const handleDownload = async (row) => {
   }
 }
 
-// 字段配置（跳转到下一个页面）
+// 字段配置（在新标签页中打开）
 const handleFieldConfig = (row) => {
-  // 使用路由跳转到字段配置页面
-  router.push({
+  // 使用路由解析获取完整 URL
+  const routeData = router.resolve({
     name: 'FieldConfig',
     query: { templateCode: row.templateCode }
   })
+  // 在新标签页中打开
+  window.open(routeData.href, '_blank')
 }
 
 // 上传组件引用 Map
