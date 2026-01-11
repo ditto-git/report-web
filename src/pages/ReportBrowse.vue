@@ -182,8 +182,15 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { Search, Download, Refresh, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+
+const route = useRoute()
+
+// 从路由参数获取 templateCode
+const templateCode = ref(route.query.templateCode || '')
+const reportCode = ref(route.query.code || '')
 
 // 查询关键字
 const searchKeyword = ref('')
@@ -304,6 +311,7 @@ const fetchTableData = async () => {
       page: pagination.value.currentPage,
       pageSize: pagination.value.pageSize,
       keyword: searchKeyword.value,
+      templateCode: templateCode.value, // 传递 templateCode 参数
       ...queryForm.value,
       sortProp: sortInfo.value.prop,
       sortOrder: sortInfo.value.order

@@ -118,7 +118,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="cellStartRow" label="纵表起始行" min-width="120">
+        <el-table-column prop="cellStartRow" label="纵表起始行" min-width="140" width="140">
           <template #default="{ row }">
             <el-input 
               v-if="row.isEditing"
@@ -128,13 +128,13 @@
             <span 
               v-else
               @dblclick="handleRowClick(row)"
-              class="editable-cell"
+              class="editable-cell editable-cell-large"
             >
               {{ row.cellStartRow || '-' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="cellStartCol" label="横表起始列" min-width="120">
+        <el-table-column prop="cellStartCol" label="横表起始列" min-width="140" width="140">
           <template #default="{ row }">
             <el-input 
               v-if="row.isEditing"
@@ -144,13 +144,13 @@
             <span 
               v-else
               @dblclick="handleRowClick(row)"
-              class="editable-cell"
+              class="editable-cell editable-cell-large"
             >
               {{ row.cellStartCol || '-' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="cellIndex" label="所在列/行" min-width="120">
+        <el-table-column prop="cellIndex" label="所在列/行" min-width="140" width="140">
           <template #default="{ row }">
             <el-input 
               v-if="row.isEditing"
@@ -160,7 +160,7 @@
             <span 
               v-else
               @dblclick="handleRowClick(row)"
-              class="editable-cell"
+              class="editable-cell editable-cell-large"
             >
               {{ row.cellIndex || '-' }}
             </span>
@@ -374,6 +374,46 @@ const handleBlur = (row, field) => {
   // 可以在这里添加字段验证
 }
 
+// 从响应头中解析文件名
+const getFileNameFromResponse = (headers) => {
+  if (!headers) {
+    return null
+  }
+  
+  // axios 可能将响应头转换为小写，所以需要检查多种格式
+  const contentDisposition = headers['content-disposition'] || 
+                             headers['Content-Disposition'] || 
+                             headers['CONTENT-DISPOSITION']
+  
+  if (!contentDisposition) {
+    return null
+  }
+  
+  // 处理 filename*=UTF-8''... 格式（RFC 5987）
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match && utf8Match[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1])
+    } catch (e) {
+      console.warn('文件名解码失败:', e)
+    }
+  }
+  
+  // 处理 filename="..." 或 filename=... 格式
+  const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]+)/i)
+  if (filenameMatch && filenameMatch[1]) {
+    let fileName = filenameMatch[1].replace(/^['"]|['"]$/g, '')
+    // 处理可能的 URL 编码
+    try {
+      return decodeURIComponent(fileName)
+    } catch (e) {
+      return fileName
+    }
+  }
+  
+  return null
+}
+
 // 配置下载
 const handleDownload = async () => {
   try {
@@ -388,16 +428,20 @@ const handleDownload = async () => {
       templateCode: currentTemplateCode.value
     })
     
+    // 从响应头中获取文件名
+    let fileName = getFileNameFromResponse(response.headers)
+    // 如果响应头中没有文件名，则使用默认值
+    if (!fileName) {
+      fileName = `字段配置_${currentTemplateCode.value}_${new Date().getTime()}.xlsx`
+    }
+    
     // 创建下载链接
-    const blob = new Blob([response], { 
+    const blob = new Blob([response.data], { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    
-    // 生成文件名
-    const fileName = `字段配置_${currentTemplateCode.value}_${new Date().getTime()}.xlsx`
     link.setAttribute('download', fileName)
     document.body.appendChild(link)
     link.click()
@@ -640,6 +684,13 @@ onMounted(() => {
 
 .field-config-table :deep(.el-table__cell) {
   padding: clamp(0.5rem, 1.2vw, 1rem) clamp(0.5rem, 1.5vw, 1.25rem);
+  position: relative;
+}
+
+/* 增大包含可编辑大单元格的列的单元格垂直空间和可点击区域 */
+.field-config-table :deep(.el-table__cell .editable-cell-large) {
+  position: relative;
+  z-index: 1;
 }
 
 .text-ellipsis {
@@ -653,13 +704,36 @@ onMounted(() => {
 
 .editable-cell {
   cursor: pointer;
-  padding: 4px;
+  padding: 8px 12px;
   border-radius: 4px;
   transition: background-color 0.2s;
+  display: block;
+  min-height: 32px;
+  width: 100%;
+  line-height: 1.5;
+  box-sizing: border-box;
 }
 
 .editable-cell:hover {
   background-color: #f0f0f0;
+}
+
+/* 特定字段（纵表起始行、横表起始列、所在列/行）的可编辑单元格，增大点击区域 */
+.editable-cell-large {
+  padding: 10px 14px;
+  min-height: 40px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+}
+
+.editable-cell-large:hover {
+  background-color: #f0f0f0;
+  border-color: #e0e0e0;
 }
 
 .action-buttons {

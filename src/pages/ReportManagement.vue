@@ -171,7 +171,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="模板下载" min-width="100" align="center">
+      <el-table-column label="模板下载" min-width="110" align="center">
         <template #default="{ row }">
           <el-button 
             v-if="!row.isNew"
@@ -179,6 +179,7 @@
             size="small"
             :icon="Download"
             @click="handleDownload(row)"
+            style="white-space: nowrap;"
           >
             下载
           </el-button>
@@ -619,6 +620,46 @@ const handleStatusChange = async (row) => {
   }
 }
 
+// 从响应头中解析文件名
+const getFileNameFromResponse = (headers) => {
+  if (!headers) {
+    return null
+  }
+  
+  // axios 可能将响应头转换为小写，所以需要检查多种格式
+  const contentDisposition = headers['content-disposition'] || 
+                             headers['Content-Disposition'] || 
+                             headers['CONTENT-DISPOSITION']
+  
+  if (!contentDisposition) {
+    return null
+  }
+  
+  // 处理 filename*=UTF-8''... 格式（RFC 5987）
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match && utf8Match[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1])
+    } catch (e) {
+      console.warn('文件名解码失败:', e)
+    }
+  }
+  
+  // 处理 filename="..." 或 filename=... 格式
+  const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]+)/i)
+  if (filenameMatch && filenameMatch[1]) {
+    let fileName = filenameMatch[1].replace(/^['"]|['"]$/g, '')
+    // 处理可能的 URL 编码
+    try {
+      return decodeURIComponent(fileName)
+    } catch (e) {
+      return fileName
+    }
+  }
+  
+  return null
+}
+
 // 模板下载
 const handleDownload = async (row) => {
   if (!row.templateCode) {
@@ -631,22 +672,21 @@ const handleDownload = async (row) => {
     // 调用下载接口
     const response = await downloadExTemplate(row.templateCode)
     
+    // 从响应头中获取文件名
+    let fileName = getFileNameFromResponse(response.headers)
+    // 如果响应头中没有文件名，则使用默认值
+    if (!fileName) {
+      fileName = row.templateCode + '.xlsx'
+    }
+    
     // 创建下载链接
-    const blob = new Blob([response], { 
+    const blob = new Blob([response.data], { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    
-    // 使用文件名，如果没有则使用模板名
-    const fileName = row.fileName || row.templateName || row.templateCode
-    // 确保文件名有扩展名
-    const downloadFileName = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') 
-      ? fileName 
-      : `${fileName}.xlsx`
-    
-    link.setAttribute('download', downloadFileName)
+    link.setAttribute('download', fileName)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -873,6 +913,16 @@ onMounted(() => {
 /* 表格单元格自适应 */
 .report-table :deep(.el-table__cell) {
   padding: clamp(0.5rem, 1.2vw, 1rem) clamp(0.5rem, 1.5vw, 1.25rem);
+}
+
+/* 按钮列单元格样式 - 防止按钮文字被截断 */
+.report-table :deep(.el-table__cell .el-button) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+  width: auto !important;
+  flex-shrink: 0 !important;
 }
 
 .report-table :deep(.is-error) {

@@ -1,0 +1,1685 @@
+
+                <!DOCTYPE html>
+                <html lang="zh">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes">
+                  <title>报表配置</title>
+                  <style>
+                    *,
+                    *::before,
+                    *::after {
+                      box-sizing: border-box;
+                      margin: 0;
+                    }
+                    .iframe-outer {
+                      position: fixed;
+                      top: 0;
+                      left: 0;
+                      bottom: 0;
+                      right: 0;
+                      display: flex;
+                      justify-content: center;
+                      background-color: #E0E0E0;
+                    }
+                    .iframe-wrapper {
+                      width: 100%;
+                      height: 100%;
+                      margin: 0 auto;
+                      transform-origin: center top;
+                      flex-shrink: 0;
+                    }
+                    #dynamicIframe {
+                      border: none;
+                      width: 100%;
+                      height: 100%;
+                    }
+                  </style>
+                  <script>
+                const width = 1920
+                const height = 1080
+                //const resolutionRatio = width && height ? width / height : 1
+                const pageNameMap = {
+               'login_page': 'login',
+    'dashboard': 'dashboard',
+    'reports_overview': 'index',
+    'report_configuration': 'config',
+    'report_download_history': 'history'
+                }
+                function setIframeSize(w, h) {
+                  const currentContainerRadio = w / h
+                  let widthValue = w
+                  let heightValue = h
+                  let zoom = 1
+                  if (currentContainerRadio > resolutionRatio) {
+                    widthValue = h * resolutionRatio
+                    heightValue = h
+                  } else {
+                    widthValue = w
+                    heightValue = w / resolutionRatio
+                  }
+                  zoom = width ? widthValue / width : 1
+                  return {
+                    width: widthValue / zoom + 'px',
+                    height: heightValue / zoom + 'px',
+                    zoom,
+                  }
+                }
+                function adjustIframeSize() {
+                  const iframeWrapper = document.querySelector(".iframe-wrapper")
+                  const { width, height, zoom } = setIframeSize(window.innerWidth, window.innerHeight)
+                  iframeWrapper.style.height = height
+                  iframeWrapper.style.width = width
+                  iframeWrapper.style.transform = 'scale(' + zoom + ')'
+                }
+                function sanitizeFilename(name) {
+                  return name.replace(/[\/:*?"<>|]/g, '_')
+                }
+                function handlePostMessage(event) {
+                  if (!event.data) {
+                    return
+                  }
+                  const { type, targetPageId } = event.data
+                  const targetPageName = pageNameMap[targetPageId]
+                  if (type === "iframeNavigation" && targetPageId && targetPageName) {
+                    window.location.href = targetPageName + '.html'
+                  }
+                }
+                window.addEventListener('message', handlePostMessage)
+                window.onload = adjustIframeSize
+                window.onresize = adjustIframeSize
+                window.onunload = () => {
+                  window.removeEventListener('message', handlePostMessage)
+                }
+              </script>
+                </head>
+                <body>
+                  <div class="iframe-outer">
+                    <div class="iframe-wrapper">
+                      <iframe id="dynamicIframe" srcdoc='<html lang="zh-CN" data-theme="light"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报表配置 - 报表导出系统</title>
+    <link href="./assets/static/uxbot/daisyui@5.css" rel="stylesheet" type="text/css">
+    <script src="./assets/static/uxbot/tailwind-browser@4.js"></script>
+    <link href="./assets/static/uxbot/daisyui-themes.css" rel="stylesheet" type="text/css">
+    <script src="./assets/3/3.1.1/iconify.min.js"></script>
+    <style>
+/* CSS code for common usage*/
+/* daisyUI Theme Variables Customization
+* Based on the selected daisyUI theme and UI guidance requirements,
+* customize only the CSS variables that need to be different from the theme defaults.
+* Available theme variables for customization:
+*/
+
+/* Only modify if different from chosen theme defaults */
+:root {
+  /* Customize brand colors for report system */
+  --color-primary: rgba(0, 123, 255, 1); /* Bright blue #007bff */
+  --color-primary-content: rgba(255, 255, 255, 1);
+  --color-secondary: rgba(108, 117, 125, 1); /* Professional gray #6c757d */
+  --color-secondary-content: rgba(255, 255, 255, 1);
+  --color-accent: rgba(40, 167, 69, 1); /* Success green #28a745 */
+  --color-accent-content: rgba(255, 255, 255, 1);
+  --color-base-100: rgba(255, 255, 255, 1); /* Pure white for cards */
+  --color-base-200: rgba(248, 249, 250, 1); /* Light gray for main content */
+  --color-base-300: rgba(229, 229, 229, 1);
+  --color-base-content: rgba(33, 37, 41, 1); /* Dark gray for text */
+  --color-success: rgba(40, 167, 69, 1); /* Green #28a745 */
+  --color-warning: rgba(255, 193, 7, 1); /* Amber #ffc107 */
+  --color-error: rgba(220, 53, 69, 1); /* Red #dc3545 */
+  --color-info: rgba(23, 162, 184, 1); /* Blue #17a2b8 */
+  --radius-box: 0.375rem; /* 6px for modern flat design */
+}
+
+/* Additional custom styles for common usage */
+.header-height {
+  height: 64px;
+}
+
+.mega-menu-transition {
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.breadcrumb-separator::after {
+  content: "›";
+  margin: 0 0.5rem;
+  color: var(--color-base-content);
+  opacity: 0.5;
+}
+
+.breadcrumb-separator:last-child::after {
+  display: none;
+}
+
+/* Report system specific styles */
+.report-card-hover {
+  transition: all 0.2s ease-in-out;
+}
+
+.report-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-box);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-processing {
+  background-color: rgba(255, 193, 7, 0.1);
+  color: var(--color-warning);
+}
+
+.status-completed {
+  background-color: rgba(40, 167, 69, 0.1);
+  color: var(--color-success);
+}
+
+.status-failed {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: var(--color-error);
+}
+</style> <style>
+/* 报表配置页面专用样式 */
+
+/* 表单区域样式 */
+.form-section {
+  position: relative;
+}
+
+.form-section h3 {
+  border-left: 4px solid var(--color-primary);
+  padding-left: 12px;
+}
+
+/* 模板选择器增强 */
+.template-selector {
+  transition: all 0.3s ease;
+}
+
+.template-selector:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* 输入框动画效果 */
+.input:focus, .select:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+  transition: all 0.2s ease;
+}
+
+/* 快速日期按钮 */
+.quick-date-btn {
+  transition: all 0.2s ease;
+}
+
+.quick-date-btn:hover {
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+  transform: translateY(-1px);
+}
+
+.quick-date-btn.active {
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+  border-color: var(--color-primary);
+}
+
+/* 筛选条件组样式 */
+.filter-group {
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.filter-group:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-base-100);
+}
+
+.remove-filter-btn {
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.remove-filter-btn:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* 格式选择样式 */
+.format-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+}
+
+.format-option input[type="radio"]:checked + div {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary)/10;
+}
+
+.format-option div {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.format-option:hover div {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 格式特定选项动画 */
+.format-specific-options {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 生成报表按钮增强 */
+.generate-report-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.generate-report-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
+}
+
+.generate-report-btn.loading {
+  pointer-events: none;
+}
+
+.generate-report-btn.loading .loading {
+  display: inline-block !important;
+}
+
+/* 概览卡片样式 */
+.card {
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* 预览区域 */
+.preview-area {
+  border: 2px dashed var(--color-base-300);
+  transition: all 0.3s ease;
+}
+
+.preview-area:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary)/5;
+}
+
+/* 推荐参数提示 */
+.alert {
+  border-left: 4px solid;
+}
+
+.alert-info {
+  border-left-color: var(--color-info);
+  background-color: var(--color-info)/10;
+}
+
+.alert-warning {
+  border-left-color: var(--color-warning);
+  background-color: var(--color-warning)/10;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .form-section h3 {
+    font-size: 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem !important;
+  }
+  
+  .grid.grid-cols-1.md\\:grid-cols-4 {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid.grid-cols-1.md\\:grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 微动画效果 */
+.iconify {
+  transition: all 0.2s ease;
+}
+
+.btn:hover .iconify {
+  transform: scale(1.1);
+}
+
+/* 加载状态 */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+/* 成功状态动画 */
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.success-animation {
+  animation: successPulse 0.6s ease-in-out;
+}
+</style>
+  <script src="./assets/static/uxbot/25_6/holder.js"></script></head>
+  <body class="min-h-screen flex flex-col bg-base-200">
+    <div data-section-id="common_header" data-section-type="common_header" class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-50 header-height px-4 lg:px-8">
+  <!-- Logo Section -->
+  <div class="navbar-start">
+    <button data-type="button" class="btn btn-ghost lg:hidden" onclick="HeaderNavigation.toggleMobileMenu()">
+      <span id="hamburger-icon" class="iconify" data-icon="heroicons:bars-3" data-width="24"></span><span id="close-icon" class="iconify hidden" data-icon="heroicons:x-mark" data-width="24"></span></button><button data-type="button" class="btn btn-ghost normal-case text-xl font-bold text-primary" onclick="navigateTo(&#39;dashboard&#39;)">
+      <span class="iconify" data-icon="heroicons:chart-bar-square" data-width="32"></span><span data-type="text">报表导出系统</span>
+    </button>
+  </div>
+  <!-- Desktop Navigation -->
+  <div class="navbar-center hidden lg:flex">
+    <ul class="menu menu-horizontal px-1 gap-2">
+      <li>
+        <button data-type="button" data-nav-item="dashboard" class="btn btn-ghost" onclick="navigateTo(&#39;dashboard&#39;)">
+          <span class="iconify i68nn spark-custom-i68nn" data-icon="heroicons:home" data-width="16" id="i68nn"></span><span data-type="text">首页</span>
+        </button>
+      </li>
+      <li class="relative">
+        <button data-type="button" data-nav-item="reports_overview" class="btn btn-ghost" onmouseover="HeaderNavigation.showReportsMenu()" onmouseleave="HeaderNavigation.hideReportsMenu()">
+          <span class="iconify" data-icon="heroicons:document-chart-bar" data-width="16"></span><span data-type="text">报表管理</span><span class="iconify" data-icon="heroicons:chevron-down" data-width="16"></span></button><!-- Reports Mega Menu -->
+        <div id="reports-mega-menu" class="absolute top-full left-0 w-80 bg-base-100 shadow-xl rounded-box p-6 opacity-0 invisible mega-menu-transition" onmouseover="HeaderNavigation.showReportsMenu()" onmouseleave="HeaderNavigation.hideReportsMenu()">
+          <div data-type="container" class="grid grid-cols-1 gap-4">
+            <button data-type="button" class="card compact bg-base-200 hover:bg-primary/10 transition-colors duration-200" onclick="navigateTo(&#39;reports_overview&#39;)">
+              <div class="card-body">
+                <h3 data-type="text" class="card-title text-sm flex items-center gap-2">
+                  <span class="iconify" data-icon="heroicons:document-text" data-width="16"></span>
+                  报表总览
+                </h3>
+                <p data-type="text" class="text-xs text-base-content/70">
+                  查看所有可用报表
+                </p>
+              </div></button><button data-type="button" class="card compact bg-base-200 hover:bg-primary/10 transition-colors duration-200" onclick="navigateTo(&#39;report_configuration&#39;)">
+              <div class="card-body">
+                <h3 data-type="text" class="card-title text-sm flex items-center gap-2">
+                  <span class="iconify" data-icon="heroicons:cog-6-tooth" data-width="16"></span>
+                  配置导出
+                </h3>
+                <p data-type="text" class="text-xs text-base-content/70">
+                  设置报表参数并导出
+                </p>
+              </div></button><button data-type="button" class="card compact bg-base-200 hover:bg-primary/10 transition-colors duration-200" onclick="navigateTo(&#39;report_download_history&#39;)">
+              <div class="card-body">
+                <h3 data-type="text" class="card-title text-sm flex items-center gap-2">
+                  <span class="iconify" data-icon="heroicons:clock" data-width="16"></span>
+                  下载历史
+                </h3>
+                <p data-type="text" class="text-xs text-base-content/70">
+                  查看导出记录和重新下载
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+  <!-- Action Buttons -->
+  <div class="navbar-end gap-2">
+    <!-- Search -->
+    <div data-type="container" class="form-control hidden md:flex">
+      <div class="join">
+        <input data-type="input" type="text" placeholder="搜索报表..." class="input input-bordered input-sm join-item w-48"><button data-type="button" class="btn btn-sm join-item">
+          <span class="iconify" data-icon="heroicons:magnifying-glass" data-width="16"></span>
+        </button>
+      </div>
+    </div>
+    <!-- Notifications -->
+    <div data-type="container" class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-ghost btn-circle"><div class="indicator">
+          <span class="iconify" data-icon="heroicons:bell" data-width="20"></span><span class="badge badge-xs badge-primary indicator-item">3</span>
+        </div></label>
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-80">
+        <li class="menu-title"><span data-type="text">通知</span></li>
+        <li>
+          <div class="flex flex-col gap-1 py-2">
+            <span data-type="text" class="font-medium text-sm">销售报表已生成完成</span><span data-type="text" class="text-xs text-base-content/70">2分钟前</span>
+          </div>
+        </li>
+        <li>
+          <div class="flex flex-col gap-1 py-2">
+            <span data-type="text" class="font-medium text-sm">月度财务报表处理中</span><span data-type="text" class="text-xs text-base-content/70">5分钟前</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <!-- User Menu -->
+    <div data-type="container" class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-ghost btn-circle avatar"><div class="avatar placeholder inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content">
+          <span class="flex items-center justify-center h-full font-semibold text-sm">瀚</span>
+        </div></label>
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+        <li class="menu-title"><span data-type="text">瀚</span></li>
+        <li>
+          <a data-type="text" href="#" class="flex items-center gap-2"><span class="iconify" data-icon="heroicons:user" data-width="16"></span>
+            个人资料
+          </a>
+        </li>
+        <li>
+          <a data-type="text" href="#" class="flex items-center gap-2"><span class="iconify" data-icon="heroicons:cog-6-tooth" data-width="16"></span>
+            系统设置
+          </a>
+        </li>
+        <li><hr class="my-1"></li>
+        <li>
+          <button data-type="button" class="flex items-center gap-2 text-error" onclick="UserSession.logout()">
+            <span class="iconify" data-icon="heroicons:arrow-right-on-rectangle" data-width="16"></span><span data-type="text">退出登录</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <!-- Mobile Navigation Menu -->
+  <div id="mobile-nav-menu" class="absolute top-full left-0 right-0 bg-base-100 border-b border-base-300 hidden lg:hidden">
+    <ul class="menu menu-vertical p-4 gap-2">
+      <li>
+        <button data-type="button" data-nav-item="dashboard" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;dashboard&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:home" data-width="16"></span><span data-type="text">首页</span>
+        </button>
+      </li>
+      <li>
+        <button data-type="button" data-nav-item="reports_overview" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;reports_overview&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:document-chart-bar" data-width="16"></span><span data-type="text">报表总览</span>
+        </button>
+      </li>
+      <li>
+        <button data-type="button" data-nav-item="report_configuration" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;report_configuration&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:cog-6-tooth" data-width="16"></span><span data-type="text">配置导出</span>
+        </button>
+      </li>
+      <li>
+        <button data-type="button" data-nav-item="report_download_history" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;report_download_history&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:clock" data-width="16"></span><span data-type="text">下载历史</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+</div>
+<!-- Breadcrumb --><div data-section-id="common_breadcrumb" data-section-type="common_section" class="bg-base-200 py-4 px-4 lg:px-8">
+  <div data-type="container" class="max-w-7xl mx-auto">
+    <div class="text-sm breadcrumbs">
+      <ul class="i3yo9e spark-custom-i3yo9e" id="i3yo9e">
+        <li class="breadcrumb-separator">
+          <a data-type="text" href="#" class="flex items-center gap-1 text-primary hover:text-primary/80" onclick="navigateTo(&#39;dashboard&#39;)"><span class="iconify" data-icon="heroicons:home-solid" data-width="16"></span><span>首页</span></a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+<!-- Main Content -->
+    <main class="flex-1 px-4 lg:px-8 py-8 id8rpg spark-custom-id8rpg" id="id8rpg">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <!-- Left Column: Configuration Form -->
+          <div class="lg:col-span-2">
+            <div data-section-id="ReportConfigurationForm" class="card bg-base-100 shadow-lg">
+              <div class="card-body p-8">
+                <div class="flex items-center gap-3 mb-6">
+                  <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <span class="iconify text-primary" data-icon="heroicons:cog-6-tooth" data-width="24"></span>
+                  </div>
+                  <div>
+                    <h1 data-type="text" class="text-2xl font-bold text-base-content">
+                      报表配置
+                    </h1>
+                    <p data-type="text" class="text-base-content/70">
+                      设置报表导出参数和格式选项
+                    </p>
+                  </div>
+                </div>
+                <form class="space-y-8">
+                  <!-- Template Selection -->
+                  <div class="form-section">
+                    <h3 data-type="text" class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span class="iconify text-accent" data-icon="heroicons:document-duplicate" data-width="20"></span>
+                      报表模板选择
+                    </h3>
+                    <div class="form-control">
+                      <label class="label"><span class="label-text font-medium">选择预设模板</span><span class="label-text-alt text-info">推荐</span></label><select class="select select-bordered select-lg w-full template-selector igg9r7 spark-custom-igg9r7" id="igg9r7">
+                        <option disabled="" selected="">请选择报表模板</option>
+                        <option value="sales_monthly">销售月报模板</option>
+                        <option value="financial_quarterly">
+                          财务季报模板
+                        </option>
+                        <option value="inventory_weekly">库存周报模板</option>
+                        <option value="custom">自定义配置</option></select><label class="label"><span class="label-text-alt">选择模板将自动填充推荐参数</span></label>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <!-- Date Range -->
+                  <div class="form-section">
+                    <h3 data-type="text" class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span class="iconify text-secondary" data-icon="heroicons:calendar-days" data-width="20"></span>
+                      日期范围
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div class="form-control">
+                        <label class="label"><span class="label-text font-medium">开始日期</span></label><label class="input input-bordered flex items-center gap-2"><span class="iconify text-base-content/50" data-icon="heroicons:calendar" data-width="16"></span><input type="date" id="start-date" class="grow"></label>
+                      </div>
+                      <div class="form-control">
+                        <label class="label"><span class="label-text font-medium">结束日期</span></label><label class="input input-bordered flex items-center gap-2"><span class="iconify text-base-content/50" data-icon="heroicons:calendar" data-width="16"></span><input type="date" id="end-date" class="grow"></label>
+                      </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                      <button type="button" data-range="7" class="btn btn-sm btn-outline quick-date-btn">
+                        最近7天</button><button type="button" data-range="30" class="btn btn-sm btn-outline quick-date-btn">
+                        最近30天</button><button type="button" data-range="90" class="btn btn-sm btn-outline quick-date-btn">
+                        最近90天
+                      </button>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <!-- Data Filters -->
+                  <div class="form-section">
+                    <h3 data-type="text" class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span class="iconify text-warning" data-icon="heroicons:funnel" data-width="20"></span>
+                      数据筛选条件
+                    </h3>
+                    <div id="filter-container" class="space-y-4">
+                      <div data-repeatable="true" class="filter-group p-4 bg-base-200 rounded-lg">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                          <div class="form-control">
+                            <label class="label"><span class="label-text">字段</span></label><select class="select select-bordered select-sm">
+                              <option>销售金额</option>
+                              <option>客户类型</option>
+                              <option>产品分类</option>
+                              <option>销售区域</option>
+                            </select>
+                          </div>
+                          <div class="form-control">
+                            <label class="label"><span class="label-text">条件</span></label><select class="select select-bordered select-sm">
+                              <option>等于</option>
+                              <option>大于</option>
+                              <option>小于</option>
+                              <option>包含</option>
+                            </select>
+                          </div>
+                          <div class="form-control">
+                            <label class="label"><span class="label-text">值</span></label><input type="text" placeholder="输入筛选值" class="input input-bordered input-sm">
+                          </div>
+                          <div class="form-control">
+                            <button type="button" class="btn btn-sm btn-error btn-outline remove-filter-btn">
+                              <span class="iconify" data-icon="heroicons:trash" data-width="16"></span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                      <button type="button" id="add-filter-btn" class="btn btn-sm btn-primary btn-outline">
+                        <span class="iconify" data-icon="heroicons:plus" data-width="16"></span>
+                        添加筛选条件</button><button type="button" id="save-preset-btn" class="btn btn-sm btn-secondary btn-outline">
+                        <span class="iconify" data-icon="heroicons:bookmark" data-width="16"></span>
+                        保存为预设
+                      </button>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <!-- Output Format -->
+                  <div class="form-section">
+                    <h3 data-type="text" class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span class="iconify text-info" data-icon="heroicons:document-arrow-down" data-width="20"></span>
+                      输出格式
+                    </h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <label class="label cursor-pointer format-option"><input type="radio" name="output-format" value="csv" class="radio radio-primary">
+                        <div class="flex flex-col items-center gap-2 p-3 border-2 border-base-300 rounded-lg hover:border-primary transition-colors">
+                          <span class="iconify text-2xl" data-icon="heroicons:document-text" data-width="32"></span><span class="text-sm font-medium">CSV</span>
+                        </div></label><label class="label cursor-pointer format-option"><input type="radio" name="output-format" value="excel" checked="" class="radio radio-primary">
+                        <div class="flex flex-col items-center gap-2 p-3 border-2 border-primary rounded-lg">
+                          <span class="iconify text-2xl text-primary" data-icon="heroicons:table-cells" data-width="32"></span><span class="text-sm font-medium">Excel</span>
+                        </div></label><label class="label cursor-pointer format-option"><input type="radio" name="output-format" value="pdf" class="radio radio-primary">
+                        <div class="flex flex-col items-center gap-2 p-3 border-2 border-base-300 rounded-lg hover:border-primary transition-colors">
+                          <span class="iconify text-2xl" data-icon="heroicons:document" data-width="32"></span><span class="text-sm font-medium">PDF</span>
+                        </div></label><label class="label cursor-pointer format-option"><input type="radio" name="output-format" value="json" class="radio radio-primary">
+                        <div class="flex flex-col items-center gap-2 p-3 border-2 border-base-300 rounded-lg hover:border-primary transition-colors">
+                          <span class="iconify text-2xl" data-icon="heroicons:code-bracket" data-width="32"></span><span class="text-sm font-medium">JSON</span>
+                        </div></label>
+                    </div>
+                    <!-- Format-specific options -->
+                    <div id="pdf-options" class="mt-4 format-specific-options" style="display: none;">
+                      <div class="p-4 bg-info/10 rounded-lg">
+                        <h4 class="font-medium mb-3">PDF 特定设置</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div class="form-control">
+                            <label class="label"><span class="label-text">页面方向</span></label><select class="select select-bordered select-sm">
+                              <option>纵向</option>
+                              <option>横向</option>
+                            </select>
+                          </div>
+                          <div class="form-control">
+                            <label class="label cursor-pointer"><span class="label-text">包含图表</span><input type="checkbox" checked="" class="toggle toggle-primary"></label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <!-- Export Method -->
+                  <div class="form-section">
+                    <h3 data-type="text" class="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span class="iconify text-success" data-icon="heroicons:paper-airplane" data-width="20"></span>
+                      导出方式
+                    </h3>
+                    <div class="space-y-3">
+                      <label class="label cursor-pointer justify-start gap-4"><input type="radio" name="export-method" value="download" checked="" class="radio radio-primary">
+                        <div class="flex items-center gap-3">
+                          <span class="iconify text-primary" data-icon="heroicons:arrow-down-tray" data-width="20"></span>
+                          <div>
+                            <span class="font-medium">直接下载</span>
+                            <p class="text-sm text-base-content/70">
+                              立即下载到本地
+                            </p>
+                          </div>
+                        </div></label><label class="label cursor-pointer justify-start gap-4"><input type="radio" name="export-method" value="email" class="radio radio-primary">
+                        <div class="flex items-center gap-3">
+                          <span class="iconify text-secondary" data-icon="heroicons:envelope" data-width="20"></span>
+                          <div>
+                            <span class="font-medium">邮件发送</span>
+                            <p class="text-sm text-base-content/70">
+                              发送到指定邮箱
+                            </p>
+                          </div>
+                        </div></label>
+                    </div>
+                  </div>
+                  <!-- Advanced Settings -->
+                  <div class="collapse collapse-arrow bg-base-200">
+                    <input type="checkbox" id="irc0uv" class="irc0uv spark-custom-irc0uv">
+                    <div class="collapse-title font-medium flex items-center gap-2">
+                      <span class="iconify" data-icon="heroicons:adjustments-horizontal" data-width="20"></span><span>高级设置</span>
+                    </div>
+                    <div class="collapse-content">
+                      <div class="space-y-4 pt-4">
+                        <div class="form-control">
+                          <label class="label cursor-pointer"><span class="label-text">包含汇总行</span><input type="checkbox" checked="" class="toggle toggle-primary"></label>
+                        </div>
+                        <div class="form-control">
+                          <label class="label cursor-pointer"><span class="label-text">显示空值</span><input type="checkbox" class="toggle toggle-primary"></label>
+                        </div>
+                        <div class="form-control">
+                          <label class="label"><span class="label-text">最大行数限制</span></label><input type="number" value="10000" min="1" max="100000" class="input input-bordered">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Action Buttons -->
+                  <div class="flex flex-col sm:flex-row gap-4 pt-6">
+                    <button type="button" class="btn btn-primary btn-lg flex-1 generate-report-btn" onclick="navigateTo(&#39;report_download_history&#39;)">
+                      <span class="iconify" data-icon="heroicons:play" data-width="20"></span><span data-type="text">生成/导出报表</span><span class="loading loading-spinner loading-sm hidden"></span></button><button type="button" class="btn btn-outline btn-lg" onclick="navigateTo(&#39;reports_overview&#39;)">
+                      <span class="iconify" data-icon="heroicons:arrow-left" data-width="20"></span><span data-type="text">返回</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          <!-- Right Column: Overview and Preview -->
+          <div id="itnzmg" class="lg:col-span-1 itnzmg spark-custom-itnzmg">
+            <div data-section-id="ReportOverviewAndPreview" class="space-y-6">
+              <!-- Report Overview Card -->
+              <div class="card bg-base-100 shadow-lg">
+                <div class="card-body p-6">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                      <span class="iconify text-accent" data-icon="heroicons:chart-bar" data-width="20"></span>
+                    </div>
+                    <div>
+                      <h2 data-type="text" class="text-lg font-bold">
+                        报表概览
+                      </h2>
+                      <p data-type="text" class="text-sm text-base-content/70">
+                        当前配置摘要
+                      </p>
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-base-content/70">报表类型</span><span id="report-type-display" class="text-sm font-medium">销售数据报表</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-base-content/70">日期范围</span><span id="date-range-display" class="text-sm font-medium">请选择日期</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-base-content/70">输出格式</span><span id="format-display" class="badge badge-primary badge-sm">Excel</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-base-content/70">筛选条件</span><span id="filter-count-display" class="text-sm font-medium">1 个条件</span>
+                    </div>
+                  </div>
+                  <div class="divider my-4"></div>
+                  <button id="save-config-btn" class="btn btn-secondary btn-sm w-full">
+                    <span class="iconify" data-icon="heroicons:bookmark" data-width="16"></span>
+                    保存配置
+                  </button>
+                </div>
+              </div>
+              <!-- Preview Card -->
+              <div class="card bg-base-100 shadow-lg">
+                <div class="card-body p-6">
+                  <h3 data-type="text" class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="iconify text-info" data-icon="heroicons:eye" data-width="20"></span>
+                    数据预览
+                  </h3>
+                  <div class="preview-area bg-base-200 rounded-lg p-4 min-h-48">
+                    <div class="text-center">
+                      <img data-type="image" alt="数据图表预览示意图，显示柱状图和趋势线" class="mx-auto mb-3 rounded opacity-60" data-src="placehold.co/200x120.png?text=Data+Chart+Preview">
+                      <p class="text-sm text-base-content/70 mb-2">
+                        预览将在配置完成后显示
+                      </p>
+                      <div class="stats stats-vertical bg-base-100 shadow-sm">
+                        <div class="stat py-2">
+                          <div class="stat-title text-xs">预计记录数</div>
+                          <div class="stat-value text-lg">1,234</div>
+                        </div>
+                        <div class="stat py-2">
+                          <div class="stat-title text-xs">预计文件大小</div>
+                          <div class="stat-value text-lg">2.5MB</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <h4 class="font-medium mb-2">推荐参数</h4>
+                    <div class="space-y-2">
+                      <div class="alert alert-info py-2">
+                        <span class="iconify" data-icon="heroicons:light-bulb" data-width="16"></span><span class="text-sm">建议使用Excel格式以获得最佳兼容性</span>
+                      </div>
+                      <div class="alert alert-warning py-2">
+                        <span class="iconify" data-icon="heroicons:exclamation-triangle" data-width="16"></span><span class="text-sm">大数据量建议分批导出</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <!-- Footer --><div data-section-id="common_footer" data-section-type="common_footer" class="bg-base-200 text-base-content">
+  <!-- Main Footer Content -->
+  <footer class="footer footer-center p-10 max-w-7xl mx-auto">
+    <!-- System Info -->
+    <aside class="flex flex-col items-center sm:items-start">
+      <div data-type="container" class="flex items-center gap-2 mb-2">
+        <span class="iconify text-primary" data-icon="heroicons:chart-bar-square" data-width="32"></span>
+        <h3 data-type="text" class="text-xl font-bold text-primary">报表导出系统</h3>
+      </div>
+      <div data-type="container" class="text-sm space-y-1 text-center sm:text-left">
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify" data-icon="heroicons:building-office" data-width="16"></span>
+          企业级报表管理平台
+        </p>
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify" data-icon="heroicons:phone" data-width="16"></span>
+          技术支持：400-888-8888
+        </p>
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify" data-icon="heroicons:clock" data-width="16"></span>
+          服务时间：周一至周五 9:00-18:00
+        </p>
+      </div>
+    </aside>
+
+    <!-- Quick Links -->
+    <nav>
+      <header data-type="text" class="footer-title text-primary">快速导航</header>
+      <button data-type="button" onclick="navigateTo(&#39;dashboard&#39;)" class="link link-hover">
+        <span data-type="text">系统首页</span>
+      </button>
+      <button data-type="button" onclick="navigateTo(&#39;reports_overview&#39;)" class="link link-hover">
+        <span data-type="text">报表总览</span>
+      </button>
+      <button data-type="button" onclick="navigateTo(&#39;report_configuration&#39;)" class="link link-hover">
+        <span data-type="text">配置导出</span>
+      </button>
+      <button data-type="button" onclick="navigateTo(&#39;report_download_history&#39;)" class="link link-hover">
+        <span data-type="text">下载历史</span>
+      </button>
+    </nav>
+
+    <!-- System Features -->
+    <nav>
+      <header data-type="text" class="footer-title text-primary">系统功能</header>
+      <span data-type="text" class="link link-hover">数据导出</span>
+      <span data-type="text" class="link link-hover">报表生成</span>
+      <span data-type="text" class="link link-hover">历史记录</span>
+      <span data-type="text" class="link link-hover">批量处理</span>
+    </nav>
+
+    <!-- Help &amp; Support -->
+    <nav>
+      <header data-type="text" class="footer-title text-primary">帮助支持</header>
+      <div data-type="container" class="text-sm space-y-2">
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify text-info" data-icon="heroicons:question-mark-circle" data-width="16"></span>
+          在线帮助文档
+        </p>
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify text-warning" data-icon="heroicons:exclamation-triangle" data-width="16"></span>
+          故障报告
+        </p>
+      </div>
+      <div data-type="container" class="flex gap-3 mt-4 justify-center sm:justify-start">
+        <a data-type="button" href="#" class="btn btn-ghost btn-sm btn-circle">
+          <span class="iconify" data-icon="heroicons:phone" data-width="20"></span>
+        </a>
+        <a data-type="button" href="#" class="btn btn-ghost btn-sm btn-circle">
+          <span class="iconify" data-icon="heroicons:envelope" data-width="20"></span>
+        </a>
+        <a data-type="button" href="#" class="btn btn-ghost btn-sm btn-circle">
+          <span class="iconify" data-icon="heroicons:question-mark-circle" data-width="20"></span>
+        </a>
+      </div>
+    </nav>
+  </footer>
+
+  <!-- Bottom Footer Bar -->
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content border-t border-base-content/10">
+    <aside class="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+      <p data-type="text" class="text-sm">© 2025 报表导出系统. 版权所有</p>
+      <div data-type="container" class="flex gap-4 text-sm">
+        <span data-type="text" class="link link-hover">隐私政策</span>
+        <span data-type="text" class="link link-hover">使用条款</span>
+        <span data-type="text" class="link link-hover">系统版本 v2.1.0</span>
+      </div>
+    </aside>
+  </footer>
+</div>
+
+<style>
+[data-section-id="common_footer"] .footer-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+[data-section-id="common_footer"] .link-hover {
+  transition: color 0.2s ease-in-out;
+}
+
+[data-section-id="common_footer"] .link-hover:hover {
+  color: var(--color-primary);
+}
+
+[data-section-id="common_footer"] .btn-circle:hover {
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+}
+</style>
+
+<script>
+(function() {
+  // Footer functionality - minimal for report system
+  const footer = document.querySelector(&#39;[data-section-id="common_footer"]&#39;);
+  
+  if (footer) {
+    // Add any footer-specific interactions here
+    // For now, just basic navigation which is handled by global functions
+  }
+})();
+</script><script>
+/* JavaScript code for common usage, should be wrapped in a closure */
+(function() {
+  // Navigation function for page transitions
+  window.navigateTo = function(targetPageId) {
+    const isInIframe = window.self !== window.top;
+    const targetFileName = `${targetPageId}.html`;
+    
+    if (isInIframe) {
+      window.parent.postMessage({
+        type: &#39;iframeNavigation&#39;,
+        targetPageId: targetPageId
+      }, &#39;*&#39;);
+    } else {
+      window.location.href = targetFileName;
+    }
+  };
+
+  // Header navigation state management
+  window.HeaderNavigation = {
+    setActiveNavItem: function(activePageId) {
+      const navItems = document.querySelectorAll(&#39;[data-nav-item]&#39;);
+      navItems.forEach(item => {
+        const pageId = item.getAttribute(&#39;data-nav-item&#39;);
+        if (pageId === activePageId) {
+          item.classList.add(&#39;bg-primary/10&#39;, &#39;text-primary&#39;);
+        } else {
+          item.classList.remove(&#39;bg-primary/10&#39;, &#39;text-primary&#39;);
+        }
+      });
+    },
+
+    toggleMobileMenu: function() {
+      const mobileMenu = document.getElementById(&#39;mobile-nav-menu&#39;);
+      const hamburger = document.getElementById(&#39;hamburger-icon&#39;);
+      const closeIcon = document.getElementById(&#39;close-icon&#39;);
+      
+      if (mobileMenu.classList.contains(&#39;hidden&#39;)) {
+        mobileMenu.classList.remove(&#39;hidden&#39;);
+        hamburger.classList.add(&#39;hidden&#39;);
+        closeIcon.classList.remove(&#39;hidden&#39;);
+      } else {
+        mobileMenu.classList.add(&#39;hidden&#39;);
+        hamburger.classList.remove(&#39;hidden&#39;);
+        closeIcon.classList.add(&#39;hidden&#39;);
+      }
+    },
+
+    showReportsMenu: function() {
+      const reportsMenu = document.getElementById(&#39;reports-mega-menu&#39;);
+      if (reportsMenu) {
+        reportsMenu.classList.remove(&#39;opacity-0&#39;, &#39;invisible&#39;);
+        reportsMenu.classList.add(&#39;opacity-100&#39;, &#39;visible&#39;);
+      }
+    },
+
+    hideReportsMenu: function() {
+      const reportsMenu = document.getElementById(&#39;reports-mega-menu&#39;);
+      if (reportsMenu) {
+        reportsMenu.classList.remove(&#39;opacity-100&#39;, &#39;visible&#39;);
+        reportsMenu.classList.add(&#39;opacity-0&#39;, &#39;invisible&#39;);
+      }
+    }
+  };
+
+  // Breadcrumb management
+  window.BreadcrumbNavigation = {
+    updateBreadcrumb: function(breadcrumbData) {
+      const breadcrumbContainer = document.querySelector(&#39;[data-section-id="common_breadcrumb"] .breadcrumbs ul&#39;);
+      if (!breadcrumbContainer) return;
+
+      breadcrumbContainer.innerHTML = &#39;&#39;;
+      breadcrumbData.forEach((item, index) => {
+        const li = document.createElement(&#39;li&#39;);
+        li.className = &#39;breadcrumb-separator&#39;;
+        
+        if (index === breadcrumbData.length - 1) {
+          // Last item (current page) - not clickable
+          li.innerHTML = `<span data-type="text" class="text-base-content/70">${item.name}</span>`;
+        } else {
+          // Clickable items
+          li.innerHTML = `<a data-type="text" href="#" onclick="navigateTo(&#39;${item.pageId}&#39;)" class="text-primary hover:text-primary/80">${item.name}</a>`;
+        }
+        breadcrumbContainer.appendChild(li);
+      });
+    }
+  };
+
+  // Report system utilities
+  window.ReportUtils = {
+    formatFileSize: function(bytes) {
+      if (bytes === 0) return &#39;0 Bytes&#39;;
+      const k = 1024;
+      const sizes = [&#39;Bytes&#39;, &#39;KB&#39;, &#39;MB&#39;, &#39;GB&#39;];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + &#39; &#39; + sizes[i];
+    },
+
+    formatDate: function(date) {
+      const options = { 
+        year: &#39;numeric&#39;, 
+        month: &#39;2-digit&#39;, 
+        day: &#39;2-digit&#39;,
+        hour: &#39;2-digit&#39;,
+        minute: &#39;2-digit&#39;
+      };
+      return new Date(date).toLocaleString(&#39;zh-CN&#39;, options);
+    },
+
+    getStatusBadge: function(status) {
+      const statusMap = {
+        &#39;processing&#39;: { class: &#39;status-processing&#39;, text: &#39;处理中&#39;, icon: &#39;heroicons:clock&#39; },
+        &#39;completed&#39;: { class: &#39;status-completed&#39;, text: &#39;已完成&#39;, icon: &#39;heroicons:check-circle&#39; },
+        &#39;failed&#39;: { class: &#39;status-failed&#39;, text: &#39;失败&#39;, icon: &#39;heroicons:x-circle&#39; }
+      };
+      
+      const statusInfo = statusMap[status] || statusMap[&#39;processing&#39;];
+      return `
+        <span class="status-indicator ${statusInfo.class}">
+          <span class="iconify" data-icon="${statusInfo.icon}" data-width="12"></span>
+          ${statusInfo.text}
+        </span>
+      `;
+    },
+
+    downloadFile: function(fileUrl, fileName) {
+      const link = document.createElement(&#39;a&#39;);
+      link.href = fileUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // User session management
+  window.UserSession = {
+    getCurrentUser: function() {
+      return {
+        name: &#39;神皮子&#39;,
+        avatar: &#39;https://placehold.co/40x40.png?text=神&#39;,
+        role: &#39;系统管理员&#39;
+      };
+    },
+
+    logout: function() {
+      if (confirm(&#39;确定要退出登录吗？&#39;)) {
+        navigateTo(&#39;login_page&#39;);
+      }
+    }
+  };
+
+})();
+</script><script>
+(function() {
+  // 页面初始化
+  document.addEventListener(&#39;DOMContentLoaded&#39;, function() {
+    // 更新面包屑
+    BreadcrumbNavigation.updateBreadcrumb([
+      { name: &#39;首页&#39;, pageId: &#39;dashboard&#39; },
+      { name: &#39;报表管理&#39;, pageId: &#39;reports_overview&#39; },
+      { name: &#39;报表配置&#39;, pageId: &#39;report_configuration&#39; }
+    ]);
+
+    // 初始化页面功能
+    initializeDatePickers();
+    initializeTemplateSelector();
+    initializeFilterManagement();
+    initializeFormatSelection();
+    initializeFormValidation();
+    initializePreviewUpdates();
+    initializeQuickActions();
+  });
+
+  // 日期选择器初始化
+  function initializeDatePickers() {
+    const startDateInput = document.getElementById(&#39;start-date&#39;);
+    const endDateInput = document.getElementById(&#39;end-date&#39;);
+    const quickDateBtns = document.querySelectorAll(&#39;.quick-date-btn&#39;);
+
+    // 设置默认日期（最近30天）
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    if (startDateInput) startDateInput.value = thirtyDaysAgo.toISOString().split(&#39;T&#39;)[0];
+    if (endDateInput) endDateInput.value = today.toISOString().split(&#39;T&#39;)[0];
+
+    // 快速日期选择
+    quickDateBtns.forEach(btn => {
+      btn.addEventListener(&#39;click&#39;, function() {
+        const days = parseInt(this.getAttribute(&#39;data-range&#39;));
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
+        
+        if (startDateInput) startDateInput.value = startDate.toISOString().split(&#39;T&#39;)[0];
+        if (endDateInput) endDateInput.value = endDate.toISOString().split(&#39;T&#39;)[0];
+        
+        // 更新按钮状态
+        quickDateBtns.forEach(b => b.classList.remove(&#39;active&#39;));
+        this.classList.add(&#39;active&#39;);
+        
+        updatePreview();
+      });
+    });
+
+    // 日期变化监听
+    [startDateInput, endDateInput].forEach(input => {
+      if (input) {
+        input.addEventListener(&#39;change&#39;, updatePreview);
+      }
+    });
+  }
+
+  // 模板选择器初始化
+  function initializeTemplateSelector() {
+    const templateSelector = document.querySelector(&#39;.template-selector&#39;);
+    
+    if (templateSelector) {
+      templateSelector.addEventListener(&#39;change&#39;, function() {
+        const selectedTemplate = this.value;
+        applyTemplate(selectedTemplate);
+        updatePreview();
+      });
+    }
+  }
+
+  // 应用模板配置
+  function applyTemplate(templateType) {
+    const templates = {
+      &#39;sales_monthly&#39;: {
+        filters: [
+          { field: &#39;销售金额&#39;, condition: &#39;大于&#39;, value: &#39;0&#39; }
+        ],
+        format: &#39;excel&#39;,
+        includeSummary: true
+      },
+      &#39;financial_quarterly&#39;: {
+        filters: [
+          { field: &#39;客户类型&#39;, condition: &#39;等于&#39;, value: &#39;企业客户&#39; }
+        ],
+        format: &#39;pdf&#39;,
+        includeSummary: true
+      },
+      &#39;inventory_weekly&#39;: {
+        filters: [
+          { field: &#39;产品分类&#39;, condition: &#39;包含&#39;, value: &#39;库存&#39; }
+        ],
+        format: &#39;csv&#39;,
+        includeSummary: false
+      }
+    };
+
+    const template = templates[templateType];
+    if (template) {
+      // 应用筛选条件
+      applyTemplateFilters(template.filters);
+      
+      // 设置输出格式
+      const formatRadio = document.querySelector(`input[name="output-format"][value="${template.format}"]`);
+      if (formatRadio) {
+        formatRadio.checked = true;
+        updateFormatSelection();
+      }
+      
+      // 设置高级选项
+      const summaryToggle = document.querySelector(&#39;.collapse-content input[type="checkbox"]&#39;);
+      if (summaryToggle) {
+        summaryToggle.checked = template.includeSummary;
+      }
+    }
+  }
+
+  // 应用模板筛选条件
+  function applyTemplateFilters(filters) {
+    const filterContainer = document.getElementById(&#39;filter-container&#39;);
+    if (!filterContainer) return;
+
+    // 清空现有筛选条件
+    filterContainer.innerHTML = &#39;&#39;;
+
+    // 添加模板筛选条件
+    filters.forEach(filter => {
+      addFilterGroup(filter);
+    });
+
+    updateFilterCount();
+  }
+
+  // 筛选条件管理
+  function initializeFilterManagement() {
+    const addFilterBtn = document.getElementById(&#39;add-filter-btn&#39;);
+    const savePresetBtn = document.getElementById(&#39;save-preset-btn&#39;);
+    
+    if (addFilterBtn) {
+      addFilterBtn.addEventListener(&#39;click&#39;, () => addFilterGroup());
+    }
+    
+    if (savePresetBtn) {
+      savePresetBtn.addEventListener(&#39;click&#39;, saveFilterPreset);
+    }
+
+    // 初始化删除按钮
+    initializeRemoveButtons();
+  }
+
+  // 添加筛选条件组
+  function addFilterGroup(filterData = null) {
+    const filterContainer = document.getElementById(&#39;filter-container&#39;);
+    if (!filterContainer) return;
+
+    const filterGroup = document.createElement(&#39;div&#39;);
+    filterGroup.className = &#39;filter-group p-4 bg-base-200 rounded-lg&#39;;
+    filterGroup.setAttribute(&#39;data-repeatable&#39;, &#39;true&#39;);
+    
+    filterGroup.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">字段</span>
+          </label>
+          <select class="select select-bordered select-sm">
+            <option ${!filterData || filterData.field === &#39;销售金额&#39; ? &#39;selected&#39; : &#39;&#39;}>销售金额</option>
+            <option ${filterData &amp;&amp; filterData.field === &#39;客户类型&#39; ? &#39;selected&#39; : &#39;&#39;}>客户类型</option>
+            <option ${filterData &amp;&amp; filterData.field === &#39;产品分类&#39; ? &#39;selected&#39; : &#39;&#39;}>产品分类</option>
+            <option ${filterData &amp;&amp; filterData.field === &#39;销售区域&#39; ? &#39;selected&#39; : &#39;&#39;}>销售区域</option>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">条件</span>
+          </label>
+          <select class="select select-bordered select-sm">
+            <option ${!filterData || filterData.condition === &#39;等于&#39; ? &#39;selected&#39; : &#39;&#39;}>等于</option>
+            <option ${filterData &amp;&amp; filterData.condition === &#39;大于&#39; ? &#39;selected&#39; : &#39;&#39;}>大于</option>
+            <option ${filterData &amp;&amp; filterData.condition === &#39;小于&#39; ? &#39;selected&#39; : &#39;&#39;}>小于</option>
+            <option ${filterData &amp;&amp; filterData.condition === &#39;包含&#39; ? &#39;selected&#39; : &#39;&#39;}>包含</option>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">值</span>
+          </label>
+          <input type="text" class="input input-bordered input-sm" placeholder="输入筛选值" value="${filterData ? filterData.value : &#39;&#39;}" />
+        </div>
+        <div class="form-control">
+          <button type="button" class="btn btn-sm btn-error btn-outline remove-filter-btn">
+            <span class="iconify" data-icon="heroicons:trash" data-width="16"></span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    filterContainer.appendChild(filterGroup);
+    
+    // 添加删除按钮事件
+    const removeBtn = filterGroup.querySelector(&#39;.remove-filter-btn&#39;);
+    removeBtn.addEventListener(&#39;click&#39;, function() {
+      filterGroup.remove();
+      updateFilterCount();
+      updatePreview();
+    });
+
+    // 添加字段变化监听
+    const selects = filterGroup.querySelectorAll(&#39;select&#39;);
+    const input = filterGroup.querySelector(&#39;input&#39;);
+    [...selects, input].forEach(element => {
+      element.addEventListener(&#39;change&#39;, updatePreview);
+    });
+
+    updateFilterCount();
+    updatePreview();
+  }
+
+  // 初始化删除按钮
+  function initializeRemoveButtons() {
+    document.addEventListener(&#39;click&#39;, function(e) {
+      if (e.target.closest(&#39;.remove-filter-btn&#39;)) {
+        const filterGroup = e.target.closest(&#39;.filter-group&#39;);
+        if (filterGroup) {
+          filterGroup.remove();
+          updateFilterCount();
+          updatePreview();
+        }
+      }
+    });
+  }
+
+  // 更新筛选条件计数
+  function updateFilterCount() {
+    const filterGroups = document.querySelectorAll(&#39;.filter-group&#39;);
+    const countDisplay = document.getElementById(&#39;filter-count-display&#39;);
+    if (countDisplay) {
+      countDisplay.textContent = `${filterGroups.length} 个条件`;
+    }
+  }
+
+  // 保存筛选预设
+  function saveFilterPreset() {
+    const filterGroups = document.querySelectorAll(&#39;.filter-group&#39;);
+    const filters = [];
+    
+    filterGroups.forEach(group => {
+      const field = group.querySelector(&#39;select&#39;).value;
+      const condition = group.querySelectorAll(&#39;select&#39;)[1].value;
+      const value = group.querySelector(&#39;input&#39;).value;
+      
+      if (field &amp;&amp; condition &amp;&amp; value) {
+        filters.push({ field, condition, value });
+      }
+    });
+
+    if (filters.length > 0) {
+      // 模拟保存到本地存储
+      const presetName = prompt(&#39;请输入预设名称：&#39;);
+      if (presetName) {
+        localStorage.setItem(`filter_preset_${presetName}`, JSON.stringify(filters));
+        alert(&#39;筛选预设已保存！&#39;);
+      }
+    } else {
+      alert(&#39;请至少添加一个有效的筛选条件&#39;);
+    }
+  }
+
+  // 格式选择初始化
+  function initializeFormatSelection() {
+    const formatRadios = document.querySelectorAll(&#39;input[name="output-format"]&#39;);
+    
+    formatRadios.forEach(radio => {
+      radio.addEventListener(&#39;change&#39;, function() {
+        updateFormatSelection();
+        updatePreview();
+      });
+    });
+
+    // 初始化格式选择状态
+    updateFormatSelection();
+  }
+
+  // 更新格式选择状态
+  function updateFormatSelection() {
+    const selectedFormat = document.querySelector(&#39;input[name="output-format"]:checked&#39;);
+    if (!selectedFormat) return;
+
+    const formatValue = selectedFormat.value;
+    
+    // 更新格式显示
+    const formatDisplay = document.getElementById(&#39;format-display&#39;);
+    if (formatDisplay) {
+      formatDisplay.textContent = formatValue.toUpperCase();
+    }
+
+    // 显示/隐藏格式特定选项
+    const allFormatOptions = document.querySelectorAll(&#39;.format-specific-options&#39;);
+    allFormatOptions.forEach(option => {
+      option.style.display = &#39;none&#39;;
+    });
+
+    const specificOptions = document.getElementById(`${formatValue}-options`);
+    if (specificOptions) {
+      specificOptions.style.display = &#39;block&#39;;
+    }
+
+    // 更新格式选项卡片样式
+    const formatOptions = document.querySelectorAll(&#39;.format-option&#39;);
+    formatOptions.forEach(option => {
+      const radio = option.querySelector(&#39;input[type="radio"]&#39;);
+      const card = option.querySelector(&#39;div&#39;);
+      
+      if (radio.checked) {
+        card.classList.remove(&#39;border-base-300&#39;);
+        card.classList.add(&#39;border-primary&#39;);
+        card.querySelector(&#39;.iconify&#39;).classList.add(&#39;text-primary&#39;);
+      } else {
+        card.classList.remove(&#39;border-primary&#39;);
+        card.classList.add(&#39;border-base-300&#39;);
+        card.querySelector(&#39;.iconify&#39;).classList.remove(&#39;text-primary&#39;);
+      }
+    });
+  }
+
+  // 表单验证
+  function initializeFormValidation() {
+    const generateBtn = document.querySelector(&#39;.generate-report-btn&#39;);
+    
+    if (generateBtn) {
+      generateBtn.addEventListener(&#39;click&#39;, function(e) {
+        if (!validateForm()) {
+          e.preventDefault();
+          return false;
+        }
+        
+        // 显示加载状态
+        showLoadingState(this);
+      });
+    }
+  }
+
+  // 验证表单
+  function validateForm() {
+    const startDate = document.getElementById(&#39;start-date&#39;).value;
+    const endDate = document.getElementById(&#39;end-date&#39;).value;
+    
+    if (!startDate || !endDate) {
+      alert(&#39;请选择日期范围&#39;);
+      return false;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+      alert(&#39;开始日期不能晚于结束日期&#39;);
+      return false;
+    }
+    
+    const filterGroups = document.querySelectorAll(&#39;.filter-group&#39;);
+    for (let group of filterGroups) {
+      const value = group.querySelector(&#39;input&#39;).value.trim();
+      if (!value) {
+        alert(&#39;请填写所有筛选条件的值&#39;);
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  // 显示加载状态
+  function showLoadingState(button) {
+    button.classList.add(&#39;loading&#39;);
+    const spinner = button.querySelector(&#39;.loading&#39;);
+    const text = button.querySelector(&#39;span[data-type="text"]&#39;);
+    
+    if (spinner) spinner.classList.remove(&#39;hidden&#39;);
+    if (text) text.textContent = &#39;正在生成报表...&#39;;
+    
+    // 模拟加载过程
+    setTimeout(() => {
+      button.classList.remove(&#39;loading&#39;);
+      if (spinner) spinner.classList.add(&#39;hidden&#39;);
+      if (text) text.textContent = &#39;生成/导出报表&#39;;
+    }, 2000);
+  }
+
+  // 预览更新
+  function initializePreviewUpdates() {
+    // 监听所有可能影响预览的元素
+    const elements = [
+      &#39;input[type="date"]&#39;,
+      &#39;select&#39;,
+      &#39;input[type="radio"]&#39;,
+      &#39;input[type="checkbox"]&#39;
+    ];
+    
+    elements.forEach(selector => {
+      document.addEventListener(&#39;change&#39;, function(e) {
+        if (e.target.matches(selector)) {
+          updatePreview();
+        }
+      });
+    });
+
+    // 初始预览
+    updatePreview();
+  }
+
+  // 更新预览信息
+  function updatePreview() {
+    updateDateRangeDisplay();
+    updateFormatDisplay();
+    updateFilterCountDisplay();
+    updateReportTypeDisplay();
+    updateEstimatedStats();
+  }
+
+  // 更新日期范围显示
+  function updateDateRangeDisplay() {
+    const startDate = document.getElementById(&#39;start-date&#39;).value;
+    const endDate = document.getElementById(&#39;end-date&#39;).value;
+    const display = document.getElementById(&#39;date-range-display&#39;);
+    
+    if (display) {
+      if (startDate &amp;&amp; endDate) {
+        display.textContent = `${startDate} 至 ${endDate}`;
+      } else {
+        display.textContent = &#39;请选择日期&#39;;
+      }
+    }
+  }
+
+  // 更新格式显示
+  function updateFormatDisplay() {
+    const selectedFormat = document.querySelector(&#39;input[name="output-format"]:checked&#39;);
+    const display = document.getElementById(&#39;format-display&#39;);
+    
+    if (display &amp;&amp; selectedFormat) {
+      display.textContent = selectedFormat.value.toUpperCase();
+    }
+  }
+
+  // 更新筛选条件显示
+  function updateFilterCountDisplay() {
+    const filterGroups = document.querySelectorAll(&#39;.filter-group&#39;);
+    const display = document.getElementById(&#39;filter-count-display&#39;);
+    
+    if (display) {
+      display.textContent = `${filterGroups.length} 个条件`;
+    }
+  }
+
+  // 更新报表类型显示
+  function updateReportTypeDisplay() {
+    const templateSelector = document.querySelector(&#39;.template-selector&#39;);
+    const display = document.getElementById(&#39;report-type-display&#39;);
+    
+    if (display &amp;&amp; templateSelector) {
+      const selectedOption = templateSelector.options[templateSelector.selectedIndex];
+      if (selectedOption.value !== &#39;&#39;) {
+        display.textContent = selectedOption.text;
+      } else {
+        display.textContent = &#39;销售数据报表&#39;;
+      }
+    }
+  }
+
+  // 更新预估统计
+  function updateEstimatedStats() {
+    // 模拟根据配置计算预估数据
+    const filterCount = document.querySelectorAll(&#39;.filter-group&#39;).length;
+    const baseRecords = 5000;
+    const estimatedRecords = Math.max(100, baseRecords - (filterCount * 500));
+    const estimatedSize = (estimatedRecords * 0.002).toFixed(1);
+    
+    // 更新显示
+    const recordsDisplay = document.querySelector(&#39;.stat-value&#39;);
+    const sizeDisplay = document.querySelectorAll(&#39;.stat-value&#39;)[1];
+    
+    if (recordsDisplay) {
+      recordsDisplay.textContent = estimatedRecords.toLocaleString();
+    }
+    
+    if (sizeDisplay) {
+      sizeDisplay.textContent = `${estimatedSize}MB`;
+    }
+  }
+
+  // 快速操作初始化
+  function initializeQuickActions() {
+    const saveConfigBtn = document.getElementById(&#39;save-config-btn&#39;);
+    
+    if (saveConfigBtn) {
+      saveConfigBtn.addEventListener(&#39;click&#39;, function() {
+        saveConfiguration();
+      });
+    }
+  }
+
+  // 保存配置
+  function saveConfiguration() {
+    const config = {
+      template: document.querySelector(&#39;.template-selector&#39;).value,
+      startDate: document.getElementById(&#39;start-date&#39;).value,
+      endDate: document.getElementById(&#39;end-date&#39;).value,
+      format: document.querySelector(&#39;input[name="output-format"]:checked&#39;).value,
+      exportMethod: document.querySelector(&#39;input[name="export-method"]:checked&#39;).value,
+      filters: getFilterConfiguration(),
+      timestamp: new Date().toISOString()
+    };
+    
+    // 模拟保存到本地存储
+    localStorage.setItem(&#39;last_report_config&#39;, JSON.stringify(config));
+    
+    // 显示成功反馈
+    const button = document.getElementById(&#39;save-config-btn&#39;);
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = &#39;<span class="iconify" data-icon="heroicons:check" data-width="16"></span> 已保存&#39;;
+    button.classList.add(&#39;btn-success&#39;, &#39;success-animation&#39;);
+    
+    setTimeout(() => {
+      button.innerHTML = originalText;
+      button.classList.remove(&#39;btn-success&#39;, &#39;success-animation&#39;);
+    }, 2000);
+  }
+
+  // 获取筛选配置
+  function getFilterConfiguration() {
+    const filterGroups = document.querySelectorAll(&#39;.filter-group&#39;);
+    const filters = [];
+    
+    filterGroups.forEach(group => {
+      const field = group.querySelector(&#39;select&#39;).value;
+      const condition = group.querySelectorAll(&#39;select&#39;)[1].value;
+      const value = group.querySelector(&#39;input&#39;).value;
+      
+      filters.push({ field, condition, value });
+    });
+    
+    return filters;
+  }
+
+  // 全局函数暴露
+  window.ReportConfiguration = {
+    addFilterGroup,
+    updatePreview,
+    saveConfiguration,
+    validateForm
+  };
+
+})();
+</script>
+  
+
+<script>
+    setTimeout(() => {
+      Holder.run({
+        domain: "placehold.co"
+      })
+    }, 100)
+  </script></body></html>'></iframe>
+                    </div>
+                  </div>
+
+                </body>
+                </html>
+            

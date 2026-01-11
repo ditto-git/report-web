@@ -1,0 +1,1400 @@
+
+                <!DOCTYPE html>
+                <html lang="zh">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes">
+                  <title>仪表盘</title>
+                  <style>
+                    *,
+                    *::before,
+                    *::after {
+                      box-sizing: border-box;
+                      margin: 0;
+                    }
+                    .iframe-outer {
+                      position: fixed;
+                      top: 0;
+                      left: 0;
+                      bottom: 0;
+                      right: 0;
+                      display: flex;
+                      justify-content: center;
+                      background-color: #E0E0E0;
+                    }
+                    .iframe-wrapper {
+                      width: 100%;
+                      height: 100%;
+                      margin: 0 auto;
+                      transform-origin: center top;
+                      flex-shrink: 0;
+                    }
+                    #dynamicIframe {
+                      border: none;
+                      width: 100%;
+                      height: 100%;
+                    }
+                  </style>
+                  <script>
+                const width = 1920
+                const height = 1080
+                //const resolutionRatio = width && height ? width / height : 1
+                const pageNameMap = {
+                  'login_page': 'login',
+    'dashboard': 'dashboard',
+    'reports_overview': 'index',
+    'report_configuration': 'config',
+    'report_download_history': 'history'
+                }
+                function setIframeSize(w, h) {
+                  const currentContainerRadio = w / h
+                  let widthValue = w
+                  let heightValue = h
+                  let zoom = 1
+                  if (currentContainerRadio > resolutionRatio) {
+                    widthValue = h * resolutionRatio
+                    heightValue = h
+                  } else {
+                    widthValue = w
+                    heightValue = w / resolutionRatio
+                  }
+                  zoom = width ? widthValue / width : 1
+                  return {
+                    width: widthValue / zoom + 'px',
+                    height: heightValue / zoom + 'px',
+                    zoom,
+                  }
+                }
+                function adjustIframeSize() {
+                  const iframeWrapper = document.querySelector(".iframe-wrapper")
+                  const { width, height, zoom } = setIframeSize(window.innerWidth, window.innerHeight)
+                  iframeWrapper.style.height = height
+                  iframeWrapper.style.width = width
+                  iframeWrapper.style.transform = 'scale(' + zoom + ')'
+                }
+                function sanitizeFilename(name) {
+                  return name.replace(/[\/:*?"<>|]/g, '_')
+                }
+                function handlePostMessage(event) {
+                  if (!event.data) {
+                    return
+                  }
+                  const { type, targetPageId } = event.data
+                  const targetPageName = pageNameMap[targetPageId]
+                  if (type === "iframeNavigation" && targetPageId && targetPageName) {
+                    window.location.href = targetPageName + '.html'
+                  }
+                }
+                window.addEventListener('message', handlePostMessage)
+                window.onload = adjustIframeSize
+                window.onresize = adjustIframeSize
+                window.onunload = () => {
+                  window.removeEventListener('message', handlePostMessage)
+                }
+              </script>
+                </head>
+                <body>
+                  <div class="iframe-outer">
+                    <div class="iframe-wrapper">
+                      <iframe id="dynamicIframe" srcdoc='<html lang="zh-CN" data-theme="light"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仪表盘 - 报表导出系统</title>
+    <link href="./assets/static/uxbot/daisyui@5.css" rel="stylesheet" type="text/css">
+    <script src="./assets/static/uxbot/tailwind-browser@4.js"></script>
+    <link href="./assets/static/uxbot/daisyui-themes.css" rel="stylesheet" type="text/css">
+    <script src="./assets/3/3.1.1/iconify.min.js"></script>
+    <style>
+/* CSS code for common usage*/
+/* daisyUI Theme Variables Customization
+* Based on the selected daisyUI theme and UI guidance requirements,
+* customize only the CSS variables that need to be different from the theme defaults.
+* Available theme variables for customization:
+*/
+
+/* Only modify if different from chosen theme defaults */
+:root {
+  /* Customize brand colors for report system */
+  --color-primary: rgba(0, 123, 255, 1); /* Bright blue #007bff */
+  --color-primary-content: rgba(255, 255, 255, 1);
+  --color-secondary: rgba(108, 117, 125, 1); /* Professional gray #6c757d */
+  --color-secondary-content: rgba(255, 255, 255, 1);
+  --color-accent: rgba(40, 167, 69, 1); /* Success green #28a745 */
+  --color-accent-content: rgba(255, 255, 255, 1);
+  --color-base-100: rgba(255, 255, 255, 1); /* Pure white for cards */
+  --color-base-200: rgba(248, 249, 250, 1); /* Light gray for main content */
+  --color-base-300: rgba(229, 229, 229, 1);
+  --color-base-content: rgba(33, 37, 41, 1); /* Dark gray for text */
+  --color-success: rgba(40, 167, 69, 1); /* Green #28a745 */
+  --color-warning: rgba(255, 193, 7, 1); /* Amber #ffc107 */
+  --color-error: rgba(220, 53, 69, 1); /* Red #dc3545 */
+  --color-info: rgba(23, 162, 184, 1); /* Blue #17a2b8 */
+  --radius-box: 0.375rem; /* 6px for modern flat design */
+}
+
+/* Additional custom styles for common usage */
+.header-height {
+  height: 64px;
+}
+
+.mega-menu-transition {
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.breadcrumb-separator::after {
+  content: "›";
+  margin: 0 0.5rem;
+  color: var(--color-base-content);
+  opacity: 0.5;
+}
+
+.breadcrumb-separator:last-child::after {
+  display: none;
+}
+
+/* Report system specific styles */
+.report-card-hover {
+  transition: all 0.2s ease-in-out;
+}
+
+.report-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-box);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-processing {
+  background-color: rgba(255, 193, 7, 0.1);
+  color: var(--color-warning);
+}
+
+.status-completed {
+  background-color: rgba(40, 167, 69, 0.1);
+  color: var(--color-success);
+}
+
+.status-failed {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: var(--color-error);
+}
+</style> <style>
+/* Dashboard specific styles */
+.odometer-value {
+  transition: all 0.8s ease-in-out;
+}
+
+/* Enhanced card hover effects */
+.report-card-hover {
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.report-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Gradient backgrounds for metric cards */
+.card.bg-gradient-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-from), var(--tw-gradient-to));
+}
+
+/* Calendar styling */
+.calendar-day-with-task {
+  position: relative;
+}
+
+.calendar-day-with-task::after {
+  content: &#39;&#39;;
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-primary);
+  border-radius: 50%;
+}
+
+/* Tab content animation */
+.tab-content {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Progress bar custom colors */
+.progress-primary::-webkit-progress-value {
+  background-color: var(--color-primary);
+}
+
+.progress-warning::-webkit-progress-value {
+  background-color: var(--color-warning);
+}
+
+.progress-error::-webkit-progress-value {
+  background-color: var(--color-error);
+}
+
+/* Skeleton loading for initial page load */
+.skeleton-card {
+  background: linear-gradient(90deg, var(--color-base-200) 25%, var(--color-base-300) 50%, var(--color-base-200) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Micro-interactions for buttons */
+.btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Custom scrollbar for calendar area */
+.calendar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.calendar-scroll::-webkit-scrollbar-track {
+  background: var(--color-base-200);
+}
+
+.calendar-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-base-300);
+  border-radius: 2px;
+}
+
+/* Status indicator improvements */
+.status-indicator {
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-box);
+}
+
+/* Accordion arrow rotation */
+.collapse-arrow .collapse-title:after {
+  transition: transform 0.2s ease-in-out;
+}
+
+.collapse[open] .collapse-title:after {
+  transform: rotate(180deg);
+}
+</style>
+  <script src="./assets/static/uxbot/25_6/holder.js"></script></head>
+  <body class="bg-base-200 min-h-screen flex flex-col">
+    <div class="header-wrapper"><div data-section-id="common_header" data-section-type="common_header" class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-50 header-height px-4 lg:px-8">
+  <!-- Logo Section -->
+  <div class="navbar-start">
+    <button data-type="button" class="btn btn-ghost lg:hidden" onclick="HeaderNavigation.toggleMobileMenu()">
+      <span id="hamburger-icon" class="iconify" data-icon="heroicons:bars-3" data-width="24"></span><span id="close-icon" class="iconify hidden" data-icon="heroicons:x-mark" data-width="24"></span></button><button data-type="button" class="btn btn-ghost normal-case text-xl font-bold text-primary" onclick="navigateTo(&#39;dashboard&#39;)">
+      <span class="iconify" data-icon="heroicons:chart-bar-square" data-width="32"></span><span data-type="text">报表导出系统</span>
+    </button>
+  </div>
+  <!-- Desktop Navigation -->
+  <div class="navbar-center hidden lg:flex">
+    <ul class="menu menu-horizontal px-1 gap-2">
+      <li>
+        <button data-type="button" data-nav-item="dashboard" class="btn btn-ghost" onclick="navigateTo(&#39;dashboard&#39;)">
+          <span class="iconify" data-icon="heroicons:home" data-width="16"></span><span data-type="text">首页</span>
+        </button>
+      </li>
+      <li class="relative">
+        <button data-type="button" data-nav-item="reports_overview" class="btn btn-ghost" onmouseover="HeaderNavigation.showReportsMenu()" onmouseleave="HeaderNavigation.hideReportsMenu()">
+          <span class="iconify ilrzy spark-custom-ilrzy" data-icon="heroicons:document-chart-bar" data-width="16" id="ilrzy"></span><span data-type="text" id="iovhv" class="iovhv spark-custom-iovhv iovhv">报表管理</span><span class="iconify" data-icon="heroicons:chevron-down" data-width="16"></span></button><!-- Reports Mega Menu -->
+        <div id="reports-mega-menu" class="absolute top-full left-0 w-80 bg-base-100 shadow-xl rounded-box p-6 opacity-0 invisible mega-menu-transition" onmouseover="HeaderNavigation.showReportsMenu()" onmouseleave="HeaderNavigation.hideReportsMenu()">
+          <div data-type="container" class="grid grid-cols-1 gap-4">
+            <button data-type="button" class="card compact bg-base-200 hover:bg-primary/10 transition-colors duration-200" onclick="navigateTo(&#39;reports_overview&#39;)">
+              <div class="card-body">
+                <h3 data-type="text" class="card-title text-sm flex items-center gap-2">
+                  <span class="iconify" data-icon="heroicons:document-text" data-width="16"></span>
+                  报表总览
+                </h3>
+                <p data-type="text" class="text-xs text-base-content/70">
+                  查看所有可用报表
+                </p>
+              </div></button><button data-type="button" class="card compact bg-base-200 hover:bg-primary/10 transition-colors duration-200" onclick="navigateTo(&#39;report_configuration&#39;)">
+              <div class="card-body">
+                <h3 data-type="text" class="card-title text-sm flex items-center gap-2">
+                  <span class="iconify" data-icon="heroicons:cog-6-tooth" data-width="16"></span>
+                  配置导出
+                </h3>
+                <p data-type="text" class="text-xs text-base-content/70">
+                  设置报表参数并导出
+                </p>
+              </div></button><button data-type="button" class="card compact bg-base-200 hover:bg-primary/10 transition-colors duration-200" onclick="navigateTo(&#39;report_download_history&#39;)">
+              <div class="card-body">
+                <h3 data-type="text" class="card-title text-sm flex items-center gap-2">
+                  <span class="iconify" data-icon="heroicons:clock" data-width="16"></span>
+                  下载历史
+                </h3>
+                <p data-type="text" class="text-xs text-base-content/70">
+                  查看导出记录和重新下载
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+  <!-- Action Buttons -->
+  <div class="navbar-end gap-2">
+    <!-- Search -->
+    <div data-type="container" class="form-control hidden md:flex">
+      <div class="join">
+        <input data-type="input" type="text" placeholder="搜索报表..." class="input input-bordered input-sm join-item w-48"><button data-type="button" class="btn btn-sm join-item">
+          <span class="iconify" data-icon="heroicons:magnifying-glass" data-width="16"></span>
+        </button>
+      </div>
+    </div>
+    <!-- Notifications -->
+    <div data-type="container" class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-ghost btn-circle"><div class="indicator">
+          <span class="iconify" data-icon="heroicons:bell" data-width="20"></span><span class="badge badge-xs badge-primary indicator-item">3</span>
+        </div></label>
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-80">
+        <li class="menu-title"><span data-type="text">通知</span></li>
+        <li>
+          <div class="flex flex-col gap-1 py-2">
+            <span data-type="text" class="font-medium text-sm">销售报表已生成完成</span><span data-type="text" class="text-xs text-base-content/70">2分钟前</span>
+          </div>
+        </li>
+        <li>
+          <div class="flex flex-col gap-1 py-2">
+            <span data-type="text" class="font-medium text-sm">月度财务报表处理中</span><span data-type="text" class="text-xs text-base-content/70">5分钟前</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <!-- User Menu -->
+    <div data-type="container" class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-ghost btn-circle avatar"><div class="avatar placeholder inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content">
+          <span class="flex items-center justify-center h-full font-semibold text-sm">瀚</span>
+        </div></label>
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+        <li class="menu-title"><span data-type="text">神皮子</span></li>
+        <li>
+          <a data-type="text" href="#" class="flex items-center gap-2"><span class="iconify" data-icon="heroicons:user" data-width="16"></span>
+            个人资料
+          </a>
+        </li>
+        <li>
+          <a data-type="text" href="#" class="flex items-center gap-2"><span class="iconify" data-icon="heroicons:cog-6-tooth" data-width="16"></span>
+            系统设置
+          </a>
+        </li>
+        <li><hr class="my-1"></li>
+        <li>
+          <button data-type="button" class="flex items-center gap-2 text-error" onclick="UserSession.logout()">
+            <span class="iconify" data-icon="heroicons:arrow-right-on-rectangle" data-width="16"></span><span data-type="text">退出登录</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <!-- Mobile Navigation Menu -->
+  <div id="mobile-nav-menu" class="absolute top-full left-0 right-0 bg-base-100 border-b border-base-300 hidden lg:hidden">
+    <ul class="menu menu-vertical p-4 gap-2">
+      <li>
+        <button data-type="button" data-nav-item="dashboard" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;dashboard&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:home" data-width="16"></span><span data-type="text">首页</span>
+        </button>
+      </li>
+      <li>
+        <button data-type="button" data-nav-item="reports_overview" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;reports_overview&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:document-chart-bar" data-width="16"></span><span data-type="text">报表总览</span>
+        </button>
+      </li>
+      <li>
+        <button data-type="button" data-nav-item="report_configuration" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;report_configuration&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:cog-6-tooth" data-width="16"></span><span data-type="text">配置导出</span>
+        </button>
+      </li>
+      <li>
+        <button data-type="button" data-nav-item="report_download_history" class="btn btn-ghost justify-start" onclick="navigateTo(&#39;report_download_history&#39;); HeaderNavigation.toggleMobileMenu()">
+          <span class="iconify" data-icon="heroicons:clock" data-width="16"></span><span data-type="text">下载历史</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+</div>
+</div>
+    <!-- Breadcrumb -->
+    <div class="breadcrumb-wrapper"><div data-section-id="common_breadcrumb" data-section-type="common_section" class="bg-base-200 py-4 px-4 lg:px-8">
+  <div data-type="container" class="max-w-7xl mx-auto">
+    <div class="text-sm breadcrumbs">
+      <ul>
+        <li class="breadcrumb-separator">
+          <a data-type="text" href="#" onclick="navigateTo(&#39;dashboard&#39;)" class="flex items-center gap-1 text-primary hover:text-primary/80">
+            <span class="iconify" data-icon="heroicons:home-solid" data-width="16"></span>
+            <span>首页</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<style>
+[data-section-id="common_breadcrumb"] .breadcrumb-separator::after {
+  content: "›";
+  margin: 0 0.5rem;
+  color: var(--color-base-content);
+  opacity: 0.5;
+}
+
+[data-section-id="common_breadcrumb"] .breadcrumb-separator:last-child::after {
+  display: none;
+}
+
+[data-section-id="common_breadcrumb"] a {
+  transition: color 0.2s ease-in-out;
+}
+</style>
+
+<script>
+(function() {
+  // Breadcrumb component is managed through the global BreadcrumbNavigation object
+  // Usage example:
+  // BreadcrumbNavigation.updateBreadcrumb([
+  //   { name: &#39;首页&#39;, pageId: &#39;dashboard&#39; },
+  //   { name: &#39;报表管理&#39;, pageId: &#39;reports_overview&#39; },
+  //   { name: &#39;报表配置&#39;, pageId: &#39;report_configuration&#39; }
+  // ]);
+})();
+</script></div>
+    <!-- Main Dashboard Content -->
+    <div id="iuem12" class="main-content-wrapper flex-1 px-4 lg:px-8 py-8 iuem12 spark-custom-iuem12">
+      <div class="max-w-7xl mx-auto">
+        <!-- Key Metrics Section -->
+        <section class="mb-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Total Reports Card -->
+            <div class="card bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
+              <div class="card-body p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-sm font-medium opacity-90">总报表数</h3>
+                    <div data-value="1,247" class="text-3xl font-bold mt-2 odometer-value">
+                      1,247
+                    </div>
+                    <div class="flex items-center gap-1 mt-2">
+                      <span class="iconify text-green-300" data-icon="heroicons:arrow-trending-up" data-width="16"></span><span class="text-sm opacity-90">+12.5%</span>
+                    </div>
+                  </div>
+                  <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span class="iconify text-white" data-icon="heroicons:document-text" data-width="24"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Active Tasks Card -->
+            <div class="card bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg">
+              <div class="card-body p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-sm font-medium opacity-90">活跃任务</h3>
+                    <div data-value="23" class="text-3xl font-bold mt-2 odometer-value">
+                      23
+                    </div>
+                    <div class="flex items-center gap-1 mt-2">
+                      <span class="iconify text-green-300" data-icon="heroicons:arrow-trending-up" data-width="16"></span><span class="text-sm opacity-90">+8.2%</span>
+                    </div>
+                  </div>
+                  <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span class="iconify text-white" data-icon="heroicons:clock" data-width="24"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Completed Today Card -->
+            <div class="card bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg">
+              <div class="card-body p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-sm font-medium opacity-90">今日完成</h3>
+                    <div data-value="156" class="text-3xl font-bold mt-2 odometer-value">
+                      156
+                    </div>
+                    <div class="flex items-center gap-1 mt-2">
+                      <span class="iconify text-red-300" data-icon="heroicons:arrow-trending-down" data-width="16"></span><span class="text-sm opacity-90">-3.1%</span>
+                    </div>
+                  </div>
+                  <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span class="iconify text-white" data-icon="heroicons:check-circle" data-width="24"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Storage Usage Card -->
+            <div class="card bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg">
+              <div class="card-body p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-sm font-medium opacity-90">存储使用</h3>
+                    <div class="text-3xl font-bold mt-2">78%</div>
+                    <div class="flex items-center gap-1 mt-2">
+                      <span class="iconify text-yellow-300" data-icon="heroicons:arrow-trending-up" data-width="16"></span><span class="text-sm opacity-90">+5.7%</span>
+                    </div>
+                  </div>
+                  <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span class="iconify text-white" data-icon="heroicons:server" data-width="24"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <!-- Left Sidebar - Quick Actions -->
+          <div class="lg:col-span-1">
+            <div class="card bg-base-100 shadow-lg">
+              <div class="card-body p-6">
+                <h2 class="card-title text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="iconify text-primary" data-icon="heroicons:bolt" data-width="20"></span>
+                  快速操作
+                </h2>
+                <div class="space-y-4">
+                  <button class="btn btn-primary w-full justify-start gap-3 h-auto py-4" onclick="navigateTo(&#39;report_configuration&#39;)">
+                    <span class="iconify" data-icon="heroicons:plus-circle" data-width="20"></span>
+                    <div class="text-left">
+                      <div class="font-medium">创建新报表</div>
+                      <div class="text-xs opacity-70">配置并生成报表</div>
+                    </div></button><button class="btn btn-secondary w-full justify-start gap-3 h-auto py-4" onclick="navigateTo(&#39;reports_overview&#39;)">
+                    <span class="iconify" data-icon="heroicons:arrow-up-tray" data-width="20"></span>
+                    <div class="text-left">
+                      <div class="font-medium">上传数据</div>
+                      <div class="text-xs opacity-70">导入新的数据源</div>
+                    </div></button><button class="btn btn-accent w-full justify-start gap-3 h-auto py-4" onclick="navigateTo(&#39;report_download_history&#39;)">
+                    <span class="iconify" data-icon="heroicons:clock" data-width="20"></span>
+                    <div class="text-left">
+                      <div class="font-medium">查看历史</div>
+                      <div class="text-xs opacity-70">浏览下载记录</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Main Content Area -->
+          <div class="lg:col-span-2">
+            <!-- Report Overview with Tabs -->
+            <div class="card bg-base-100 shadow-lg mb-8">
+              <div class="card-body p-6">
+                <div class="flex items-center justify-between mb-4">
+                  <h2 class="card-title text-lg font-bold flex items-center gap-2">
+                    <span class="iconify text-primary" data-icon="heroicons:document-text" data-width="20"></span>
+                    我的报表概览
+                  </h2>
+                  <button class="btn btn-ghost btn-sm" onclick="navigateTo(&#39;reports_overview&#39;)">
+                    查看全部
+                    <span class="iconify" data-icon="heroicons:arrow-right" data-width="16"></span>
+                  </button>
+                </div>
+                <!-- Tabs -->
+                <div role="tablist" class="tabs tabs-bordered mb-6">
+                  <input type="radio" name="report_tabs" role="tab" aria-label="所有报表" checked="" id="it381x" class="tab it381x spark-custom-it381x">
+                  <div role="tabpanel" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <!-- Report Card 1 -->
+                      <div data-repeatable="true" data-type="card" class="card bg-base-200 report-card-hover">
+                        <div class="card-body p-4">
+                          <h3 class="font-semibold text-sm">销售月报</h3>
+                          <p class="text-xs text-base-content/70 mt-1">
+                            2024年10月销售数据汇总
+                          </p>
+                          <div class="text-xs text-base-content/50 mt-2">
+                            更新于: 2024-10-02
+                          </div>
+                          <div class="card-actions justify-end mt-3 gap-2">
+                            <button class="btn btn-primary btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              快速导出</button><button class="btn btn-ghost btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              查看详情
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Report Card 2 -->
+                      <div data-repeatable="true" data-type="card" class="card bg-base-200 report-card-hover">
+                        <div class="card-body p-4">
+                          <h3 class="font-semibold text-sm">用户分析报告</h3>
+                          <p class="text-xs text-base-content/70 mt-1">
+                            用户行为和偏好分析
+                          </p>
+                          <div class="text-xs text-base-content/50 mt-2">
+                            更新于: 2024-10-01
+                          </div>
+                          <div class="card-actions justify-end mt-3 gap-2">
+                            <button class="btn btn-primary btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              快速导出</button><button class="btn btn-ghost btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              查看详情
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Report Card 3 -->
+                      <div data-repeatable="true" data-type="card" class="card bg-base-200 report-card-hover">
+                        <div class="card-body p-4">
+                          <h3 class="font-semibold text-sm">财务季报</h3>
+                          <p class="text-xs text-base-content/70 mt-1">
+                            Q3财务数据总结
+                          </p>
+                          <div class="text-xs text-base-content/50 mt-2">
+                            更新于: 2024-09-30
+                          </div>
+                          <div class="card-actions justify-end mt-3 gap-2">
+                            <button class="btn btn-primary btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              快速导出</button><button class="btn btn-ghost btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              查看详情
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Report Card 4 -->
+                      <div data-repeatable="true" data-type="card" class="card bg-base-200 report-card-hover">
+                        <div class="card-body p-4">
+                          <h3 class="font-semibold text-sm">库存报表</h3>
+                          <p class="text-xs text-base-content/70 mt-1">
+                            当前库存状态概览
+                          </p>
+                          <div class="text-xs text-base-content/50 mt-2">
+                            更新于: 2024-10-02
+                          </div>
+                          <div class="card-actions justify-end mt-3 gap-2">
+                            <button class="btn btn-primary btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              快速导出</button><button class="btn btn-ghost btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              查看详情
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <input type="radio" name="report_tabs" role="tab" aria-label="我的收藏" id="idz0wu" class="tab idz0wu spark-custom-idz0wu">
+                  <div role="tabpanel" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <!-- Favorite Report Card -->
+                      <div data-repeatable="true" data-type="card" class="card bg-base-200 report-card-hover">
+                        <div class="card-body p-4">
+                          <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                              <h3 class="font-semibold text-sm">销售月报</h3>
+                              <p class="text-xs text-base-content/70 mt-1">
+                                2024年10月销售数据汇总
+                              </p>
+                              <div class="text-xs text-base-content/50 mt-2">
+                                更新于: 2024-10-02
+                              </div>
+                            </div>
+                            <span class="iconify text-yellow-500" data-icon="heroicons:star-solid" data-width="16"></span>
+                          </div>
+                          <div class="card-actions justify-end mt-3 gap-2">
+                            <button class="btn btn-primary btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              快速导出</button><button class="btn btn-ghost btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              查看详情
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <input type="radio" name="report_tabs" role="tab" aria-label="待处理" id="inmj0a" class="tab inmj0a spark-custom-inmj0a">
+                  <div role="tabpanel" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <!-- Pending Report Card -->
+                      <div data-repeatable="true" data-type="card" class="card bg-base-200 report-card-hover">
+                        <div class="card-body p-4">
+                          <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                              <h3 class="font-semibold text-sm">
+                                用户分析报告
+                              </h3>
+                              <p class="text-xs text-base-content/70 mt-1">
+                                用户行为和偏好分析
+                              </p>
+                              <div class="text-xs text-base-content/50 mt-2">
+                                更新于: 2024-10-01
+                              </div>
+                            </div>
+                            <span class="status-indicator status-processing"><span class="iconify" data-icon="heroicons:clock" data-width="12"></span>
+                              处理中
+                            </span>
+                          </div>
+                          <div class="card-actions justify-end mt-3 gap-2">
+                            <button class="btn btn-primary btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              快速导出</button><button class="btn btn-ghost btn-xs" onclick="navigateTo(&#39;report_configuration&#39;)">
+                              查看详情
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Right Sidebar -->
+          <div class="lg:col-span-1 space-y-8">
+            <!-- Report Task Calendar -->
+            <div class="card bg-base-100 shadow-lg">
+              <div class="card-body p-6">
+                <h2 class="card-title text-lg font-bold mb-4 flex items-center gap-2">
+                  <span class="iconify text-primary" data-icon="heroicons:calendar-days" data-width="20"></span>
+                  报表任务日历
+                </h2>
+                <!-- Mini Calendar -->
+                <div class="text-center mb-4">
+                  <div class="text-sm font-medium text-base-content/70">
+                    2024年10月
+                  </div>
+                </div>
+                <!-- Calendar Grid -->
+                <div class="grid grid-cols-7 gap-1 text-xs mb-4">
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    日
+                  </div>
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    一
+                  </div>
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    二
+                  </div>
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    三
+                  </div>
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    四
+                  </div>
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    五
+                  </div>
+                  <div class="text-center font-medium text-base-content/50 p-1">
+                    六
+                  </div>
+                  <!-- Calendar Days -->
+                  <div class="text-center p-1 text-base-content/30">29</div>
+                  <div class="text-center p-1 text-base-content/30">30</div>
+                  <div class="text-center p-1">1</div>
+                  <div class="text-center p-1">2</div>
+                  <div class="text-center p-1 bg-primary/20 rounded text-primary font-medium">
+                    3
+                  </div>
+                  <div class="text-center p-1">4</div>
+                  <div class="text-center p-1">5</div>
+                  <div class="text-center p-1">6</div>
+                  <div class="text-center p-1">7</div>
+                  <div class="text-center p-1 bg-warning/20 rounded text-warning font-medium">
+                    8
+                  </div>
+                  <div class="text-center p-1">9</div>
+                  <div class="text-center p-1">10</div>
+                  <div class="text-center p-1">11</div>
+                  <div class="text-center p-1">12</div>
+                  <div class="text-center p-1">13</div>
+                  <div class="text-center p-1">14</div>
+                  <div class="text-center p-1 bg-success/20 rounded text-success font-medium">
+                    15
+                  </div>
+                  <div class="text-center p-1">16</div>
+                  <div class="text-center p-1">17</div>
+                  <div class="text-center p-1">18</div>
+                  <div class="text-center p-1">19</div>
+                  <div class="text-center p-1">20</div>
+                  <div class="text-center p-1">21</div>
+                  <div class="text-center p-1">22</div>
+                  <div class="text-center p-1">23</div>
+                  <div class="text-center p-1">24</div>
+                  <div class="text-center p-1">25</div>
+                  <div class="text-center p-1">26</div>
+                  <div class="text-center p-1">27</div>
+                  <div class="text-center p-1">28</div>
+                  <div class="text-center p-1">29</div>
+                  <div class="text-center p-1">30</div>
+                  <div class="text-center p-1">31</div>
+                </div>
+                <!-- Today&#39;s Tasks -->
+                <div class="border-t border-base-300 pt-4">
+                  <h3 class="font-medium text-sm mb-3">今日任务</h3>
+                  <div class="space-y-2">
+                    <div data-repeatable="true" data-type="task" class="flex items-center justify-between p-2 bg-base-200 rounded">
+                      <div class="flex items-center gap-2">
+                        <span class="iconify text-success" data-icon="heroicons:check-circle" data-width="16"></span>
+                        <div>
+                          <div class="text-xs font-medium">销售月报</div>
+                          <div class="text-xs text-base-content/50">09:00</div>
+                        </div>
+                      </div>
+                      <span class="status-indicator status-completed">已完成</span>
+                    </div>
+                    <div data-repeatable="true" data-type="task" class="flex items-center justify-between p-2 bg-base-200 rounded">
+                      <div class="flex items-center gap-2">
+                        <span class="iconify text-warning" data-icon="heroicons:clock" data-width="16"></span>
+                        <div>
+                          <div class="text-xs font-medium">用户分析</div>
+                          <div class="text-xs text-base-content/50">14:00</div>
+                        </div>
+                      </div>
+                      <span class="status-indicator status-processing">处理中</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- System Health Overview -->
+            <div class="card bg-base-100 shadow-lg">
+              <div class="card-body p-6">
+                <!-- Accordion for System Health -->
+                <div class="collapse collapse-arrow bg-base-100">
+                  <input type="checkbox" id="system-health-toggle">
+                  <div class="collapse-title font-medium flex items-center gap-2 p-0">
+                    <span class="iconify text-primary" data-icon="heroicons:server" data-width="20"></span><span>系统健康概览</span>
+                    <div class="ml-auto flex items-center gap-2">
+                      <span class="w-2 h-2 bg-success rounded-full"></span><span class="text-xs text-success">正常</span>
+                    </div>
+                  </div>
+                  <div class="collapse-content p-0 pt-4">
+                    <div class="space-y-4">
+                      <!-- CPU Usage -->
+                      <div>
+                        <div class="flex justify-between items-center mb-1">
+                          <span class="text-sm">CPU使用率</span><span class="text-sm font-medium">45%</span>
+                        </div>
+                        <progress value="45" max="100" class="progress progress-primary w-full"></progress>
+                      </div>
+                      <!-- Memory Usage -->
+                      <div>
+                        <div class="flex justify-between items-center mb-1">
+                          <span class="text-sm">内存使用率</span><span class="text-sm font-medium">62%</span>
+                        </div>
+                        <progress value="62" max="100" class="progress progress-warning w-full"></progress>
+                      </div>
+                      <!-- Storage -->
+                      <div>
+                        <div class="flex justify-between items-center mb-1">
+                          <span class="text-sm">存储空间</span><span class="text-sm font-medium">78%</span>
+                        </div>
+                        <progress value="78" max="100" class="progress progress-error w-full"></progress>
+                      </div>
+                      <!-- Network -->
+                      <div class="flex items-center justify-between p-2 bg-base-200 rounded">
+                        <div class="flex items-center gap-2">
+                          <span class="iconify text-success" data-icon="heroicons:wifi" data-width="16"></span><span class="text-sm">网络连接</span>
+                        </div>
+                        <span class="text-sm text-success">正常</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Footer -->
+    <div class="footer-wrapper"><div data-section-id="common_footer" data-section-type="common_footer" class="bg-base-200 text-base-content">
+  <!-- Main Footer Content -->
+  <footer class="footer footer-center p-10 max-w-7xl mx-auto">
+    <!-- System Info -->
+    <aside class="flex flex-col items-center sm:items-start">
+      <div data-type="container" class="flex items-center gap-2 mb-2">
+        <span class="iconify text-primary" data-icon="heroicons:chart-bar-square" data-width="32"></span>
+        <h3 data-type="text" class="text-xl font-bold text-primary">报表导出系统</h3>
+      </div>
+      <div data-type="container" class="text-sm space-y-1 text-center sm:text-left">
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify" data-icon="heroicons:building-office" data-width="16"></span>
+          企业级报表管理平台
+        </p>
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify" data-icon="heroicons:phone" data-width="16"></span>
+          技术支持：400-888-8888
+        </p>
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify" data-icon="heroicons:clock" data-width="16"></span>
+          服务时间：周一至周五 9:00-18:00
+        </p>
+      </div>
+    </aside>
+
+    <!-- Quick Links -->
+    <nav>
+      <header data-type="text" class="footer-title text-primary">快速导航</header>
+      <button data-type="button" onclick="navigateTo(&#39;dashboard&#39;)" class="link link-hover">
+        <span data-type="text">系统首页</span>
+      </button>
+      <button data-type="button" onclick="navigateTo(&#39;reports_overview&#39;)" class="link link-hover">
+        <span data-type="text">报表总览</span>
+      </button>
+      <button data-type="button" onclick="navigateTo(&#39;report_configuration&#39;)" class="link link-hover">
+        <span data-type="text">配置导出</span>
+      </button>
+      <button data-type="button" onclick="navigateTo(&#39;report_download_history&#39;)" class="link link-hover">
+        <span data-type="text">下载历史</span>
+      </button>
+    </nav>
+
+    <!-- System Features -->
+    <nav>
+      <header data-type="text" class="footer-title text-primary">系统功能</header>
+      <span data-type="text" class="link link-hover">数据导出</span>
+      <span data-type="text" class="link link-hover">报表生成</span>
+      <span data-type="text" class="link link-hover">历史记录</span>
+      <span data-type="text" class="link link-hover">批量处理</span>
+    </nav>
+
+    <!-- Help &amp; Support -->
+    <nav>
+      <header data-type="text" class="footer-title text-primary">帮助支持</header>
+      <div data-type="container" class="text-sm space-y-2">
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify text-info" data-icon="heroicons:question-mark-circle" data-width="16"></span>
+          在线帮助文档
+        </p>
+        <p data-type="text" class="flex items-center gap-1 justify-center sm:justify-start">
+          <span class="iconify text-warning" data-icon="heroicons:exclamation-triangle" data-width="16"></span>
+          故障报告
+        </p>
+      </div>
+      <div data-type="container" class="flex gap-3 mt-4 justify-center sm:justify-start">
+        <a data-type="button" href="#" class="btn btn-ghost btn-sm btn-circle">
+          <span class="iconify" data-icon="heroicons:phone" data-width="20"></span>
+        </a>
+        <a data-type="button" href="#" class="btn btn-ghost btn-sm btn-circle">
+          <span class="iconify" data-icon="heroicons:envelope" data-width="20"></span>
+        </a>
+        <a data-type="button" href="#" class="btn btn-ghost btn-sm btn-circle">
+          <span class="iconify" data-icon="heroicons:question-mark-circle" data-width="20"></span>
+        </a>
+      </div>
+    </nav>
+  </footer>
+
+  <!-- Bottom Footer Bar -->
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content border-t border-base-content/10">
+    <aside class="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+      <p data-type="text" class="text-sm">© 2025 报表导出系统. 版权所有</p>
+      <div data-type="container" class="flex gap-4 text-sm">
+        <span data-type="text" class="link link-hover">隐私政策</span>
+        <span data-type="text" class="link link-hover">使用条款</span>
+        <span data-type="text" class="link link-hover">系统版本 v2.1.0</span>
+      </div>
+    </aside>
+  </footer>
+</div>
+
+<style>
+[data-section-id="common_footer"] .footer-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+[data-section-id="common_footer"] .link-hover {
+  transition: color 0.2s ease-in-out;
+}
+
+[data-section-id="common_footer"] .link-hover:hover {
+  color: var(--color-primary);
+}
+
+[data-section-id="common_footer"] .btn-circle:hover {
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+}
+</style>
+
+<script>
+(function() {
+  // Footer functionality - minimal for report system
+  const footer = document.querySelector(&#39;[data-section-id="common_footer"]&#39;);
+  
+  if (footer) {
+    // Add any footer-specific interactions here
+    // For now, just basic navigation which is handled by global functions
+  }
+})();
+</script></div>
+    <script>
+/* JavaScript code for common usage, should be wrapped in a closure */
+(function() {
+  // Navigation function for page transitions
+  window.navigateTo = function(targetPageId) {
+    const isInIframe = window.self !== window.top;
+    const targetFileName = `${targetPageId}.html`;
+    
+    if (isInIframe) {
+      window.parent.postMessage({
+        type: &#39;iframeNavigation&#39;,
+        targetPageId: targetPageId
+      }, &#39;*&#39;);
+    } else {
+      window.location.href = targetFileName;
+    }
+  };
+
+  // Header navigation state management
+  window.HeaderNavigation = {
+    setActiveNavItem: function(activePageId) {
+      const navItems = document.querySelectorAll(&#39;[data-nav-item]&#39;);
+      navItems.forEach(item => {
+        const pageId = item.getAttribute(&#39;data-nav-item&#39;);
+        if (pageId === activePageId) {
+          item.classList.add(&#39;bg-primary/10&#39;, &#39;text-primary&#39;);
+        } else {
+          item.classList.remove(&#39;bg-primary/10&#39;, &#39;text-primary&#39;);
+        }
+      });
+    },
+
+    toggleMobileMenu: function() {
+      const mobileMenu = document.getElementById(&#39;mobile-nav-menu&#39;);
+      const hamburger = document.getElementById(&#39;hamburger-icon&#39;);
+      const closeIcon = document.getElementById(&#39;close-icon&#39;);
+      
+      if (mobileMenu.classList.contains(&#39;hidden&#39;)) {
+        mobileMenu.classList.remove(&#39;hidden&#39;);
+        hamburger.classList.add(&#39;hidden&#39;);
+        closeIcon.classList.remove(&#39;hidden&#39;);
+      } else {
+        mobileMenu.classList.add(&#39;hidden&#39;);
+        hamburger.classList.remove(&#39;hidden&#39;);
+        closeIcon.classList.add(&#39;hidden&#39;);
+      }
+    },
+
+    showReportsMenu: function() {
+      const reportsMenu = document.getElementById(&#39;reports-mega-menu&#39;);
+      if (reportsMenu) {
+        reportsMenu.classList.remove(&#39;opacity-0&#39;, &#39;invisible&#39;);
+        reportsMenu.classList.add(&#39;opacity-100&#39;, &#39;visible&#39;);
+      }
+    },
+
+    hideReportsMenu: function() {
+      const reportsMenu = document.getElementById(&#39;reports-mega-menu&#39;);
+      if (reportsMenu) {
+        reportsMenu.classList.remove(&#39;opacity-100&#39;, &#39;visible&#39;);
+        reportsMenu.classList.add(&#39;opacity-0&#39;, &#39;invisible&#39;);
+      }
+    }
+  };
+
+  // Breadcrumb management
+  window.BreadcrumbNavigation = {
+    updateBreadcrumb: function(breadcrumbData) {
+      const breadcrumbContainer = document.querySelector(&#39;[data-section-id="common_breadcrumb"] .breadcrumbs ul&#39;);
+      if (!breadcrumbContainer) return;
+
+      breadcrumbContainer.innerHTML = &#39;&#39;;
+      breadcrumbData.forEach((item, index) => {
+        const li = document.createElement(&#39;li&#39;);
+        li.className = &#39;breadcrumb-separator&#39;;
+        
+        if (index === breadcrumbData.length - 1) {
+          // Last item (current page) - not clickable
+          li.innerHTML = `<span data-type="text" class="text-base-content/70">${item.name}</span>`;
+        } else {
+          // Clickable items
+          li.innerHTML = `<a data-type="text" href="#" onclick="navigateTo(&#39;${item.pageId}&#39;)" class="text-primary hover:text-primary/80">${item.name}</a>`;
+        }
+        breadcrumbContainer.appendChild(li);
+      });
+    }
+  };
+
+  // Report system utilities
+  window.ReportUtils = {
+    formatFileSize: function(bytes) {
+      if (bytes === 0) return &#39;0 Bytes&#39;;
+      const k = 1024;
+      const sizes = [&#39;Bytes&#39;, &#39;KB&#39;, &#39;MB&#39;, &#39;GB&#39;];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + &#39; &#39; + sizes[i];
+    },
+
+    formatDate: function(date) {
+      const options = { 
+        year: &#39;numeric&#39;, 
+        month: &#39;2-digit&#39;, 
+        day: &#39;2-digit&#39;,
+        hour: &#39;2-digit&#39;,
+        minute: &#39;2-digit&#39;
+      };
+      return new Date(date).toLocaleString(&#39;zh-CN&#39;, options);
+    },
+
+    getStatusBadge: function(status) {
+      const statusMap = {
+        &#39;processing&#39;: { class: &#39;status-processing&#39;, text: &#39;处理中&#39;, icon: &#39;heroicons:clock&#39; },
+        &#39;completed&#39;: { class: &#39;status-completed&#39;, text: &#39;已完成&#39;, icon: &#39;heroicons:check-circle&#39; },
+        &#39;failed&#39;: { class: &#39;status-failed&#39;, text: &#39;失败&#39;, icon: &#39;heroicons:x-circle&#39; }
+      };
+      
+      const statusInfo = statusMap[status] || statusMap[&#39;processing&#39;];
+      return `
+        <span class="status-indicator ${statusInfo.class}">
+          <span class="iconify" data-icon="${statusInfo.icon}" data-width="12"></span>
+          ${statusInfo.text}
+        </span>
+      `;
+    },
+
+    downloadFile: function(fileUrl, fileName) {
+      const link = document.createElement(&#39;a&#39;);
+      link.href = fileUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // User session management
+  window.UserSession = {
+    getCurrentUser: function() {
+      return {
+        name: &#39;神皮子&#39;,
+        avatar: &#39;https://placehold.co/40x40.png?text=神&#39;,
+        role: &#39;系统管理员&#39;
+      };
+    },
+
+    logout: function() {
+      if (confirm(&#39;确定要退出登录吗？&#39;)) {
+        navigateTo(&#39;login_page&#39;);
+      }
+    }
+  };
+
+})();
+</script><script>
+(function() {
+  // Dashboard initialization
+  document.addEventListener(&#39;DOMContentLoaded&#39;, function() {
+    // Initialize breadcrumb for dashboard
+    BreadcrumbNavigation.updateBreadcrumb([
+      { name: &#39;首页&#39;, pageId: &#39;dashboard&#39; }
+    ]);
+
+    // Set active navigation item
+    HeaderNavigation.setActiveNavItem(&#39;dashboard&#39;);
+
+    // Initialize odometer effect for metric cards
+    initializeOdometerEffect();
+
+    // Initialize tab functionality
+    initializeTabFunctionality();
+
+    // Initialize system health accordion
+    initializeSystemHealthAccordion();
+
+    // Simulate data loading with skeleton screens
+    simulateDataLoading();
+  });
+
+  // Odometer effect for animated numbers
+  function initializeOdometerEffect() {
+    const odometerElements = document.querySelectorAll(&#39;.odometer-value&#39;);
+    
+    odometerElements.forEach(element => {
+      const targetValue = element.getAttribute(&#39;data-value&#39;);
+      const currentValue = element.textContent;
+      
+      // Animate number counting
+      setTimeout(() => {
+        animateNumber(element, 0, parseInt(targetValue.replace(/,/g, &#39;&#39;)), 1500);
+      }, 500);
+    });
+  }
+
+  function animateNumber(element, start, end, duration) {
+    const startTime = performance.now();
+    
+    function updateNumber(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const currentValue = Math.floor(start + (end - start) * easeOutQuart);
+      
+      element.textContent = currentValue.toLocaleString();
+      
+      if (progress < 1) {
+        requestAnimationFrame(updateNumber);
+      }
+    }
+    
+    requestAnimationFrame(updateNumber);
+  }
+
+  // Tab functionality
+  function initializeTabFunctionality() {
+    const tabInputs = document.querySelectorAll(&#39;input[name="report_tabs"]&#39;);
+    
+    tabInputs.forEach(input => {
+      input.addEventListener(&#39;change&#39;, function() {
+        if (this.checked) {
+          // Add fade-in animation to active tab content
+          const tabContent = this.nextElementSibling;
+          if (tabContent) {
+            tabContent.style.animation = &#39;none&#39;;
+            setTimeout(() => {
+              tabContent.style.animation = &#39;fadeIn 0.3s ease-in-out&#39;;
+            }, 10);
+          }
+        }
+      });
+    });
+  }
+
+  // System health accordion functionality
+  function initializeSystemHealthAccordion() {
+    const accordionToggle = document.getElementById(&#39;system-health-toggle&#39;);
+    
+    if (accordionToggle) {
+      accordionToggle.addEventListener(&#39;change&#39;, function() {
+        const collapseContent = this.parentElement.querySelector(&#39;.collapse-content&#39;);
+        
+        if (this.checked) {
+          // Accordion is opening - animate progress bars
+          setTimeout(() => {
+            animateProgressBars();
+          }, 200);
+        }
+      });
+    }
+  }
+
+  function animateProgressBars() {
+    const progressBars = document.querySelectorAll(&#39;.collapse-content .progress&#39;);
+    
+    progressBars.forEach((bar, index) => {
+      const value = bar.getAttribute(&#39;value&#39;);
+      bar.setAttribute(&#39;value&#39;, &#39;0&#39;);
+      
+      setTimeout(() => {
+        bar.setAttribute(&#39;value&#39;, value);
+      }, index * 100);
+    });
+  }
+
+  // Simulate loading with skeleton screens
+  function simulateDataLoading() {
+    const cards = document.querySelectorAll(&#39;.report-card-hover&#39;);
+    
+    // Add skeleton effect initially
+    cards.forEach(card => {
+      card.classList.add(&#39;skeleton-card&#39;);
+    });
+
+    // Remove skeleton effect after loading
+    setTimeout(() => {
+      cards.forEach(card => {
+        card.classList.remove(&#39;skeleton-card&#39;);
+      });
+    }, 1000);
+  }
+
+  // Dashboard specific utility functions
+  window.DashboardUtils = {
+    refreshMetrics: function() {
+      // Simulate metric refresh
+      const odometerElements = document.querySelectorAll(&#39;.odometer-value&#39;);
+      odometerElements.forEach(element => {
+        const currentValue = parseInt(element.textContent.replace(/,/g, &#39;&#39;));
+        const variation = Math.floor(Math.random() * 100) - 50;
+        const newValue = Math.max(0, currentValue + variation);
+        
+        animateNumber(element, currentValue, newValue, 800);
+      });
+    },
+
+    toggleSystemHealth: function() {
+      const accordionToggle = document.getElementById(&#39;system-health-toggle&#39;);
+      if (accordionToggle) {
+        accordionToggle.checked = !accordionToggle.checked;
+        accordionToggle.dispatchEvent(new Event(&#39;change&#39;));
+      }
+    },
+
+    exportReport: function(reportId) {
+      // Simulate report export
+      console.log(&#39;Exporting report:&#39;, reportId);
+      navigateTo(&#39;report_configuration&#39;);
+    },
+
+    viewReportDetails: function(reportId) {
+      // Simulate viewing report details
+      console.log(&#39;Viewing report details:&#39;, reportId);
+      navigateTo(&#39;report_configuration&#39;);
+    }
+  };
+
+  // Calendar interaction (basic)
+  const calendarDays = document.querySelectorAll(&#39;.grid .text-center.p-1&#39;);
+  calendarDays.forEach(day => {
+    if (day.classList.contains(&#39;bg-primary/20&#39;) || 
+        day.classList.contains(&#39;bg-warning/20&#39;) || 
+        day.classList.contains(&#39;bg-success/20&#39;)) {
+      day.style.cursor = &#39;pointer&#39;;
+      day.addEventListener(&#39;click&#39;, function() {
+        // Show tasks for selected day (placeholder)
+        console.log(&#39;Selected day:&#39;, this.textContent);
+      });
+    }
+  });
+
+})();
+</script>
+  
+
+<script>
+    setTimeout(() => {
+      Holder.run({
+        domain: "placehold.co"
+      })
+    }, 100)
+  </script></body></html>'></iframe>
+                    </div>
+                  </div>
+
+          
+                </body>
+                </html>
+            
