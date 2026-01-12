@@ -26,7 +26,7 @@ const routes = [
     }
   },
   {
-    path: '/report-browse',
+    path: '/report-browse/:code?',
     name: 'ReportBrowse',
     component: () => import('@/pages/ReportBrowse.vue'),
     meta: {

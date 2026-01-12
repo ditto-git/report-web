@@ -1,5 +1,5 @@
 <template>
-  <div class="report-browse">
+  <div class="report-browse" v-loading="exporting" :element-loading-text="exporting ? `正在导出报表，请稍候... (${exportCountdown}秒)` : '正在导出报表，请稍候...'" element-loading-background="transparent">
     <div class="header">
       <h2>报表浏览</h2>
       <div class="header-right">
@@ -30,8 +30,16 @@
             :icon="Download"
             @click="handleExport"
             :loading="exporting"
+            :disabled="exporting"
           >
             报表导出
+          </el-button>
+          <el-button 
+            type="warning" 
+            :icon="Setting"
+            @click="navigateToFieldConfig"
+          >
+            配置
           </el-button>
           <el-button 
             type="info" 
@@ -141,22 +149,22 @@
           :index="(index) => (pagination.currentPage - 1) * pagination.pageSize + index + 1"
         />
         <el-table-column 
-          v-for="(header, index) in tableHeaders" 
-          :key="index"
-          :prop="header"
-          :label="header"
-          :min-width="getColumnWidth(header)"
+          v-for="(column, index) in tableColumns" 
+          :key="column.cellCode || index"
+          :prop="column.cellProperty"
+          :label="column.headContent"
+          :min-width="getColumnWidth(column.headContent)"
           :sortable="'custom'"
           show-overflow-tooltip
         >
           <template #default="{ row }">
             <el-tooltip
-              :content="row[header] || '-'"
+              :content="row[column.cellProperty] || '-'"
               placement="top"
-              :disabled="!row[header] || String(row[header]).length <= 20"
+              :disabled="!row[column.cellProperty] || String(row[column.cellProperty]).length <= 20"
             >
               <span class="text-ellipsis">
-                {{ row[header] || '-' }}
+                {{ row[column.cellProperty] || '-' }}
               </span>
             </el-tooltip>
           </template>
@@ -169,7 +177,7 @@
       <el-pagination
         v-model:current-page="pagination.currentPage"
         v-model:page-size="pagination.pageSize"
-        :page-sizes="[10, 20, 50, 100, 200]"
+        :page-sizes="[10, 20, 30, 50, 100, 200]"
         :total="pagination.total"
         layout="total, sizes, prev, pager, next, jumper"
         @size-change="handleSizeChange"
@@ -181,16 +189,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { Search, Download, Refresh, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Search, Download, Refresh, ArrowUp, ArrowDown, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import request from '@/utils/request'
 
 const route = useRoute()
+const router = useRouter()
 
-// 从路由参数获取 templateCode
+// 从路由参数获取 templateCode 和 code
+// code 从路径参数获取，templateCode 从查询参数获取
 const templateCode = ref(route.query.templateCode || '')
-const reportCode = ref(route.query.code || '')
+const reportCode = ref(route.params.code || route.query.code || '')
 
 // 查询关键字
 const searchKeyword = ref('')
@@ -203,6 +214,9 @@ const loading = ref(false)
 
 // 导出状态
 const exporting = ref(false)
+// 导出倒计时（秒）
+const exportCountdown = ref(0)
+let exportTimer = null
 
 // 表格高度
 const tableHeight = ref(600)
@@ -237,7 +251,7 @@ const tableData = ref([])
 // 分页信息
 const pagination = ref({
   currentPage: 1,
-  pageSize: 20,
+  pageSize: 30, // 默认每页30条
   total: 0
 })
 
@@ -278,9 +292,11 @@ const handleReset = () => {
 }
 
 // 刷新功能
-const handleRefresh = () => {
-  fetchTableHeaders()
-  fetchTableData()
+const handleRefresh = async () => {
+  // 刷新时重置标志，允许重新初始化
+  isInitialized.value = false
+  await initData()
+  isInitialized.value = true
 }
 
 // 分页大小改变
@@ -304,124 +320,274 @@ const handleSortChange = ({ prop, order }) => {
 
 // 获取表格数据
 const fetchTableData = async () => {
+  if (!templateCode.value) {
+    ElMessage.warning('缺少 templateCode 参数')
+    return
+  }
+
   loading.value = true
   try {
-    // 构建查询参数
-    const params = {
-      page: pagination.value.currentPage,
-      pageSize: pagination.value.pageSize,
-      keyword: searchKeyword.value,
-      templateCode: templateCode.value, // 传递 templateCode 参数
-      ...queryForm.value,
-      sortProp: sortInfo.value.prop,
-      sortOrder: sortInfo.value.order
-    }
-
-    // 调用后端接口
-    // const response = await getReportList(params)
-    // tableData.value = response.data.list
-    // pagination.value.total = response.data.total
-
-    // 模拟数据
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // 调用接口获取数据，使用统一的 request 工具处理跨域
+    // 参数：templateCode=RY_CJ&pageNum=1&pageSize=30
+    const data = await request({
+      url: '/Person/query',
+      method: 'GET',
+      params: {
+        templateCode: templateCode.value,
+        pageNum: pagination.value.currentPage,
+        pageSize: pagination.value.pageSize
+      }
+    })
     
-    // 模拟从后端获取的数据格式：List<Map<String,String>>
-    const mockData = []
-    for (let i = 0; i < pagination.value.pageSize; i++) {
-      const row = {}
-      tableHeaders.value.forEach(header => {
-        row[header] = `${header}_数据_${(pagination.value.currentPage - 1) * pagination.value.pageSize + i + 1}`
-      })
-      mockData.push(row)
+    // 根据后端返回的数据结构处理
+    // 假设返回格式为 { list: [...], total: 100 } 或 { data: [...], total: 100 } 或直接是数组
+    let dataList = []
+    let total = 0
+    
+    if (Array.isArray(data)) {
+      // 如果直接返回数组，说明没有分页信息
+      dataList = data
+      total = data.length
+    } else if (data.list) {
+      // 格式：{ list: [...], total: 100 }
+      dataList = data.list || []
+      total = data.total || data.totalCount || data.totalElements || 0
+    } else if (data.data) {
+      // 格式：{ data: [...], total: 100 }
+      dataList = Array.isArray(data.data) ? data.data : []
+      total = data.total || data.totalCount || data.totalElements || 0
+    } else if (data.records) {
+      // 格式：{ records: [...], total: 100 } (MyBatis-Plus 分页格式)
+      dataList = data.records || []
+      total = data.total || data.totalCount || data.totalElements || 0
+    } else {
+      dataList = []
+      total = 0
     }
-    tableData.value = mockData
-    pagination.value.total = 156 // 模拟总数
+
+    // 确保数据中的字段名与 cellProperty 匹配
+    // 如果后端返回的字段名与 cellProperty 不一致，可能需要映射
+    tableData.value = dataList
+    pagination.value.total = total
 
     ElMessage.success('数据加载成功')
   } catch (error) {
+    console.error('数据加载失败:', error)
     ElMessage.error('数据加载失败：' + error.message)
     tableData.value = []
+    pagination.value.total = 0
   } finally {
     loading.value = false
   }
 }
 
+// 表格列配置（包含 headContent 和 cellProperty）
+const tableColumns = ref([])
+
 // 获取表格表头
 const fetchTableHeaders = async () => {
-  try {
-    // 调用后端接口获取表头
-    // const response = await getReportHeaders()
-    // tableHeaders.value = response.data // List<String>
+  if (!templateCode.value) {
+    ElMessage.warning('缺少 templateCode 参数')
+    return
+  }
 
-    // 模拟从后端获取的表头格式：List<String>
-    await new Promise(resolve => setTimeout(resolve, 200))
-    tableHeaders.value = [
-      '报表编号',
-      '报表名称',
-      '报表类型',
-      '创建时间',
-      '创建人',
-      '报表状态',
-      '文件大小',
-      '备注信息'
-    ]
+  try {
+    // 调用接口获取表头配置，使用统一的 request 工具处理跨域
+    const data = await request({
+      url: '/Person/query-head',
+      method: 'GET',
+      params: {
+        templateCode: templateCode.value
+      }
+    })
+    
+    // 处理响应数据，提取 headContent 和 cellProperty
+    // 按 cellIndex 排序
+    const sortedData = Array.isArray(data) 
+      ? data.sort((a, b) => {
+          const indexA = parseInt(a.cellIndex || 0)
+          const indexB = parseInt(b.cellIndex || 0)
+          return indexA - indexB
+        })
+      : []
+
+    // 生成表头配置
+    tableColumns.value = sortedData.map(item => ({
+      headContent: item.headContent || '',
+      cellProperty: item.cellProperty || '',
+      cellIndex: item.cellIndex || '',
+      cellCode: item.cellCode || ''
+    }))
+
+    // 提取表头显示文本（headContent）
+    tableHeaders.value = tableColumns.value.map(col => col.headContent)
   } catch (error) {
+    console.error('表头加载失败:', error)
     ElMessage.error('表头加载失败：' + error.message)
     tableHeaders.value = []
+    tableColumns.value = []
   }
+}
+
+// 解析文件名（处理各种编码格式）
+const parseFileName = (contentDisposition) => {
+  if (!contentDisposition) {
+    return null
+  }
+
+  // 尝试匹配 filename*=UTF-8''encoded-name 格式（RFC 5987）
+  let fileNameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    try {
+      let decoded = decodeURIComponent(fileNameMatch[1])
+      // 如果解码后还包含编码字符，再次尝试解码
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      return decoded
+    } catch (e) {
+      console.warn('UTF-8文件名解码失败:', e)
+    }
+  }
+
+  // 尝试匹配 filename*=UTF-8''encoded-name; filename="fallback" 格式
+  fileNameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+);\s*filename="([^"]+)"/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    try {
+      let decoded = decodeURIComponent(fileNameMatch[1])
+      // 如果解码后还包含编码字符，再次尝试解码
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      return decoded
+    } catch (e) {
+      // 如果UTF-8解码失败，使用fallback
+      if (fileNameMatch[2]) {
+        let fallback = fileNameMatch[2]
+        // 检查fallback是否也需要解码
+        if (fallback.includes('%')) {
+          try {
+            fallback = decodeURIComponent(fallback)
+          } catch (e2) {
+            // 解码失败，使用原始值
+          }
+        }
+        return fallback
+      }
+    }
+  }
+
+  // 尝试匹配 filename="name" 格式
+  fileNameMatch = contentDisposition.match(/filename="([^"]+)"/)
+  if (fileNameMatch && fileNameMatch[1]) {
+    let name = fileNameMatch[1]
+    // 检查是否包含URL编码字符
+    if (name.includes('%')) {
+      try {
+        name = decodeURIComponent(name)
+        // 如果解码后还包含编码字符，再次尝试解码
+        if (name.includes('%')) {
+          name = decodeURIComponent(name)
+        }
+      } catch (e) {
+        console.warn('文件名解码失败:', e)
+      }
+    }
+    return name
+  }
+
+  // 尝试匹配 filename=name 格式（无引号）
+  fileNameMatch = contentDisposition.match(/filename=([^;]+)/)
+  if (fileNameMatch && fileNameMatch[1]) {
+    let name = fileNameMatch[1].trim()
+    // 移除可能的引号
+    name = name.replace(/^["']|["']$/g, '')
+    // 检查是否包含URL编码字符
+    if (name.includes('%')) {
+      try {
+        name = decodeURIComponent(name)
+        // 如果解码后还包含编码字符，再次尝试解码
+        if (name.includes('%')) {
+          name = decodeURIComponent(name)
+        }
+      } catch (e) {
+        console.warn('文件名解码失败:', e)
+      }
+    }
+    return name
+  }
+
+  return null
 }
 
 // 导出报表
 const handleExport = async () => {
+  if (!reportCode.value) {
+    ElMessage.warning('缺少报表编码，无法导出')
+    return
+  }
+
+  // 如果正在导出，禁止重复点击
+  if (exporting.value) {
+    return
+  }
+
   exporting.value = true
+  exportCountdown.value = 0
+  
+  // 启动倒计时
+  exportTimer = setInterval(() => {
+    exportCountdown.value++
+  }, 1000)
+  
   try {
-    // 构建导出参数
-    const params = {
-      keyword: searchKeyword.value,
-      ...queryForm.value,
-      sortProp: sortInfo.value.prop,
-      sortOrder: sortInfo.value.order,
-      exportType: 'excel' // 或 'pdf'
-    }
-
     // 调用后端导出接口
-    // const response = await exportReport(params)
-    // const url = window.URL.createObjectURL(new Blob([response.data]))
-    // const link = document.createElement('a')
-    // link.href = url
-    // link.setAttribute('download', `报表数据_${new Date().getTime()}.xlsx`)
-    // document.body.appendChild(link)
-    // link.click()
-    // document.body.removeChild(link)
-    // window.URL.revokeObjectURL(url)
-
-    // 模拟导出
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // 创建模拟的导出数据
-    const exportData = tableData.value.map((row, index) => {
-      const exportRow = { 序号: (pagination.value.currentPage - 1) * pagination.value.pageSize + index + 1 }
-      tableHeaders.value.forEach(header => {
-        exportRow[header] = row[header] || '-'
-      })
-      return exportRow
+    // 路径格式：http://localhost:8081/ditto/Person/{code}
+    const response = await request({
+      url: `/Person/${reportCode.value}`,
+      method: 'GET',
+      responseType: 'blob' // 文件下载需要 blob 类型
     })
 
-    // 转换为CSV格式（实际应该使用Excel库）
-    const csvContent = [
-      ['序号', ...tableHeaders.value].join(','),
-      ...exportData.map(row => 
-        ['序号', ...tableHeaders.value].map(header => 
-          `"${row[header] || ''}"`
-        ).join(',')
-      )
-    ].join('\n')
+    // 从响应头中获取文件名
+    let fileName = parseFileName(response.headers?.['content-disposition'] || response.headers?.['Content-Disposition'])
 
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    // 如果没有从响应头获取到文件名，使用默认文件名
+    if (!fileName) {
+      fileName = `报表数据_${reportCode.value}_${new Date().getTime()}.xlsx`
+    }
+
+    // 确保文件名正确解码，处理可能的URL编码
+    let finalFileName = fileName
+    // 检查文件名是否包含URL编码字符（%开头）
+    if (finalFileName.includes('%')) {
+      try {
+        // 尝试解码URL编码
+        finalFileName = decodeURIComponent(finalFileName)
+        // 如果解码后还包含编码字符，可能需要再次解码（处理双重编码的情况）
+        if (finalFileName.includes('%')) {
+          try {
+            finalFileName = decodeURIComponent(finalFileName)
+          } catch (e2) {
+            // 第二次解码失败，使用第一次解码的结果
+            console.warn('文件名二次解码失败:', e2)
+          }
+        }
+      } catch (e) {
+        console.warn('文件名解码失败，使用原始文件名:', e)
+        // 解码失败，使用原始文件名
+      }
+    }
+
+    // 创建下载链接
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `报表数据_${new Date().getTime()}.csv`)
+    // 使用解码后的文件名
+    link.setAttribute('download', finalFileName)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -429,10 +595,33 @@ const handleExport = async () => {
 
     ElMessage.success('报表导出成功')
   } catch (error) {
-    ElMessage.error('报表导出失败：' + error.message)
+    console.error('报表导出失败:', error)
+    ElMessage.error('报表导出失败：' + (error.message || '未知错误'))
   } finally {
+    // 清除倒计时
+    if (exportTimer) {
+      clearInterval(exportTimer)
+      exportTimer = null
+    }
     exporting.value = false
+    exportCountdown.value = 0
   }
+}
+
+// 跳转到字段配置页面
+const navigateToFieldConfig = () => {
+  if (!templateCode.value) {
+    ElMessage.warning('缺少模板编码，无法跳转到配置页面')
+    return
+  }
+  // 在新标签页打开
+  const route = router.resolve({
+    name: 'FieldConfig',
+    query: {
+      templateCode: templateCode.value
+    }
+  })
+  window.open(route.href, '_blank')
 }
 
 // 计算表格高度
@@ -450,16 +639,58 @@ const handleResize = () => {
   calculateTableHeight()
 }
 
+// 初始化数据（先加载表头，再加载数据）
+const initData = async () => {
+  if (!templateCode.value) {
+    return
+  }
+  
+  try {
+    // 先加载表头
+    await fetchTableHeaders()
+    // 表头加载成功后再加载数据
+    await fetchTableData()
+  } catch (error) {
+    console.error('初始化数据失败:', error)
+  }
+}
+
+// 初始化标志，防止重复调用
+const isInitialized = ref(false)
+
+// 监听路由参数变化
+watch(() => [route.query.templateCode, route.params.code, route.query.code], async ([newTemplateCode, newPathCode, newQueryCode]) => {
+  if (newTemplateCode) {
+    templateCode.value = newTemplateCode
+  }
+  // 优先使用路径参数，如果没有则使用查询参数
+  const code = newPathCode || newQueryCode
+  if (code) {
+    reportCode.value = code
+  }
+  if (newTemplateCode && !isInitialized.value) {
+    isInitialized.value = true
+    await initData()
+  }
+}, { immediate: false })
+
 // 初始化
-onMounted(() => {
-  fetchTableHeaders()
-  fetchTableData()
+onMounted(async () => {
+  if (templateCode.value && !isInitialized.value) {
+    isInitialized.value = true
+    await initData()
+  }
   calculateTableHeight()
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  // 清理导出倒计时
+  if (exportTimer) {
+    clearInterval(exportTimer)
+    exportTimer = null
+  }
 })
 </script>
 

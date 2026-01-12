@@ -264,7 +264,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Search, Download, Upload, Document, UploadFilled, Edit, Check, Close, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -571,6 +571,13 @@ const fetchFieldConfigData = async () => {
     loading.value = false
   }
 }
+
+// 监听路由参数变化
+watch(() => route.query.templateCode, (newTemplateCode) => {
+  if (newTemplateCode) {
+    fetchFieldConfigData()
+  }
+}, { immediate: false })
 
 // 初始化
 onMounted(() => {

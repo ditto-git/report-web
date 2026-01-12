@@ -1,5 +1,5 @@
 <template>
-  <div class="home-page">
+  <div class="home-page" v-loading="exporting" :element-loading-text="exporting ? `正在导出报表，请稍候... (${exportCountdown}秒)` : '正在导出报表，请稍候...'" element-loading-background="transparent">
     <!-- 导航栏 -->
     <div class="navbar">
       <div class="navbar-start">
@@ -19,20 +19,10 @@
             <el-icon><HomeFilled /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-sub-menu index="reports">
-            <template #title>
-              <el-icon><Document /></el-icon>
-              <span>报表管理</span>
-            </template>
-            <el-menu-item index="reports-overview" @click="navigateToReportManagement">
-              <el-icon><Document /></el-icon>
-              <span>报表总览</span>
-            </el-menu-item>
-            <el-menu-item index="reports-config" @click="navigateToFieldConfig">
-              <el-icon><Setting /></el-icon>
-              <span>配置导出</span>
-            </el-menu-item>
-          </el-sub-menu>
+          <el-menu-item index="reports" @click="navigateToReportManagement">
+            <el-icon><Document /></el-icon>
+            <span>报表管理</span>
+          </el-menu-item>
         </el-menu>
       </div>
       
@@ -75,7 +65,7 @@
               所有可用报表一览无余，轻松配置，快速导出。
             </p>
             <div class="hero-actions">
-              <el-button type="primary" size="large" @click="navigateToFieldConfig">
+              <el-button type="primary" size="large" @click="navigateToReportManagement">
                 <el-icon><Plus /></el-icon>
                 新建报表
               </el-button>
@@ -149,8 +139,6 @@
               <div class="card-header">
                 <h3 class="card-title">{{ report.name }}</h3>
                 <el-tag :type="report.enabled ? 'success' : 'danger'" size="small">
-                  <el-icon v-if="report.enabled"><Check /></el-icon>
-                  <el-icon v-else><Close /></el-icon>
                   {{ report.enabled ? '已启用' : '已禁用' }}
                 </el-tag>
               </div>
@@ -180,8 +168,8 @@
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item @click="navigateToReport(report)">导出</el-dropdown-item>
-                      <el-dropdown-item @click="navigateToReport(report)">配置</el-dropdown-item>
+                      <el-dropdown-item @click.stop="handleExportReport(report)">导出</el-dropdown-item>
+                      <el-dropdown-item @click.stop="navigateToFieldConfig(report)">配置</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
@@ -211,7 +199,7 @@
                   <el-button type="primary" link size="small" @click.stop="navigateToReport(row)">
                     查看
                   </el-button>
-                  <el-button type="info" link size="small" @click.stop="navigateToReport(row)">
+                  <el-button type="warning" link size="small" @click.stop="navigateToFieldConfig(row)">
                     配置
                   </el-button>
                 </template>
@@ -251,7 +239,6 @@
           <h4>快速导航</h4>
           <el-link type="primary" @click="navigateToHome">系统首页</el-link>
           <el-link type="primary" @click="navigateToReportManagement">报表总览</el-link>
-          <el-link type="primary" @click="navigateToFieldConfig">配置导出</el-link>
         </div>
         
         <div class="footer-section">
@@ -276,7 +263,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Document,
@@ -285,13 +272,14 @@ import {
   Search,
   Plus,
   Download,
-  Check,
-  Close,
   Calendar,
   Grid,
   List,
-  MoreFilled
+  MoreFilled,
+  View
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import request from '@/utils/request'
 
 const router = useRouter()
 
@@ -312,12 +300,18 @@ const viewMode = ref('card')
 const currentPage = ref(1)
 const pageSize = ref(12)
 
+// 导出状态
+const exporting = ref(false)
+// 导出倒计时（秒）
+const exportCountdown = ref(0)
+let exportTimer = null
+
 // 报表列表数据
 const reportList = [
   {
     name: '现在职人员花名册(单位分组)',
     code: 'HMC_XZ_N',
-    templateCode: 'HMC_XZ',
+    templateCode: 'HMC_XZ_N',
     enabled: true,
     description: '按单位分组显示的现在职人员花名册报表'
   },
@@ -353,7 +347,7 @@ const reportList = [
     name: '人员成绩(单位)',
     code: 'RY_CJ_S',
     templateCode: 'RY_CJ',
-    enabled: false,
+    enabled: true,
     description: '按单位统计的人员成绩报表'
   }
 ]
@@ -417,21 +411,227 @@ const navigateToHome = () => {
 }
 
 const navigateToReportManagement = () => {
-  router.push({ name: 'ReportManagement' })
+  const route = router.resolve({ name: 'ReportManagement' })
+  window.open(route.href, '_blank')
 }
 
-const navigateToFieldConfig = () => {
-  router.push({ name: 'FieldConfig' })
+const navigateToFieldConfig = (report) => {
+  // 在新标签页打开
+  if (report) {
+    // 如果传入了报表对象，传递 templateCode
+    const route = router.resolve({
+      name: 'FieldConfig',
+      query: {
+        templateCode: report.templateCode
+      }
+    })
+    window.open(route.href, '_blank')
+  } else {
+    // 如果没有传入报表对象，直接跳转
+    const route = router.resolve({ name: 'FieldConfig' })
+    window.open(route.href, '_blank')
+  }
+}
+
+const navigateToReportBrowse = () => {
+  router.push({ name: 'ReportBrowse' })
+}
+
+const navigateToEmployeeTravel = () => {
+  router.push({ name: 'EmployeeTravelRecord' })
+}
+
+// 解析文件名（处理各种编码格式）
+const parseFileName = (contentDisposition) => {
+  if (!contentDisposition) {
+    return null
+  }
+
+  // 尝试匹配 filename*=UTF-8''encoded-name 格式（RFC 5987）
+  let fileNameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    try {
+      let decoded = decodeURIComponent(fileNameMatch[1])
+      // 如果解码后还包含编码字符，再次尝试解码
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      return decoded
+    } catch (e) {
+      console.warn('UTF-8文件名解码失败:', e)
+    }
+  }
+
+  // 尝试匹配 filename*=UTF-8''encoded-name; filename="fallback" 格式
+  fileNameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+);\s*filename="([^"]+)"/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    try {
+      let decoded = decodeURIComponent(fileNameMatch[1])
+      // 如果解码后还包含编码字符，再次尝试解码
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      return decoded
+    } catch (e) {
+      // 如果UTF-8解码失败，使用fallback
+      if (fileNameMatch[2]) {
+        let fallback = fileNameMatch[2]
+        // 检查fallback是否也需要解码
+        if (fallback.includes('%')) {
+          try {
+            fallback = decodeURIComponent(fallback)
+          } catch (e2) {
+            // 解码失败，使用原始值
+          }
+        }
+        return fallback
+      }
+    }
+  }
+
+  // 尝试匹配 filename="name" 格式
+  fileNameMatch = contentDisposition.match(/filename="([^"]+)"/)
+  if (fileNameMatch && fileNameMatch[1]) {
+    let name = fileNameMatch[1]
+    // 检查是否包含URL编码字符
+    if (name.includes('%')) {
+      try {
+        name = decodeURIComponent(name)
+        // 如果解码后还包含编码字符，再次尝试解码
+        if (name.includes('%')) {
+          name = decodeURIComponent(name)
+        }
+      } catch (e) {
+        console.warn('文件名解码失败:', e)
+      }
+    }
+    return name
+  }
+
+  // 尝试匹配 filename=name 格式（无引号）
+  fileNameMatch = contentDisposition.match(/filename=([^;]+)/)
+  if (fileNameMatch && fileNameMatch[1]) {
+    let name = fileNameMatch[1].trim()
+    // 移除可能的引号
+    name = name.replace(/^["']|["']$/g, '')
+    // 检查是否包含URL编码字符
+    if (name.includes('%')) {
+      try {
+        name = decodeURIComponent(name)
+        // 如果解码后还包含编码字符，再次尝试解码
+        if (name.includes('%')) {
+          name = decodeURIComponent(name)
+        }
+      } catch (e) {
+        console.warn('文件名解码失败:', e)
+      }
+    }
+    return name
+  }
+
+  return null
+}
+
+// 导出报表（与 report-browse 页面功能相同）
+const handleExportReport = async (report) => {
+  if (!report.code) {
+    ElMessage.warning('缺少报表编码，无法导出')
+    return
+  }
+
+  // 如果正在导出，禁止重复点击
+  if (exporting.value) {
+    return
+  }
+
+  exporting.value = true
+  exportCountdown.value = 0
+  
+  // 启动倒计时
+  exportTimer = setInterval(() => {
+    exportCountdown.value++
+  }, 1000)
+
+  try {
+    // 调用后端导出接口
+    // 路径格式：http://localhost:8081/ditto/Person/{code}
+    const response = await request({
+      url: `/Person/${report.code}`,
+      method: 'GET',
+      responseType: 'blob' // 文件下载需要 blob 类型
+    })
+
+    // 从响应头中获取文件名
+    let fileName = parseFileName(response.headers?.['content-disposition'] || response.headers?.['Content-Disposition'])
+
+    // 如果没有从响应头获取到文件名，使用默认文件名
+    if (!fileName) {
+      fileName = `报表数据_${report.code}_${new Date().getTime()}.xlsx`
+    }
+
+    // 确保文件名正确解码，处理可能的URL编码
+    let finalFileName = fileName
+    // 检查文件名是否包含URL编码字符（%开头）
+    if (finalFileName.includes('%')) {
+      try {
+        // 尝试解码URL编码
+        finalFileName = decodeURIComponent(finalFileName)
+        // 如果解码后还包含编码字符，可能需要再次解码（处理双重编码的情况）
+        if (finalFileName.includes('%')) {
+          try {
+            finalFileName = decodeURIComponent(finalFileName)
+          } catch (e2) {
+            // 第二次解码失败，使用第一次解码的结果
+            console.warn('文件名二次解码失败:', e2)
+          }
+        }
+      } catch (e) {
+        console.warn('文件名解码失败，使用原始文件名:', e)
+        // 解码失败，使用原始文件名
+      }
+    }
+
+    // 创建下载链接
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    // 使用解码后的文件名
+    link.setAttribute('download', finalFileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success('报表导出成功')
+  } catch (error) {
+    console.error('报表导出失败:', error)
+    ElMessage.error('报表导出失败：' + (error.message || '未知错误'))
+  } finally {
+    // 清除倒计时
+    if (exportTimer) {
+      clearInterval(exportTimer)
+      exportTimer = null
+    }
+    exporting.value = false
+    exportCountdown.value = 0
+  }
 }
 
 const navigateToReport = (report) => {
-  router.push({
+  // 在新标签页打开
+  const route = router.resolve({
     name: 'ReportBrowse',
-    query: {
-      templateCode: report.templateCode,
+    params: {
       code: report.code
+    },
+    query: {
+      templateCode: report.templateCode
     }
   })
+  window.open(route.href, '_blank')
 }
 
 // 表格行点击
@@ -441,6 +641,14 @@ const handleRowClick = (row) => {
 
 onMounted(() => {
   // 初始化
+})
+
+onUnmounted(() => {
+  // 清理导出倒计时
+  if (exportTimer) {
+    clearInterval(exportTimer)
+    exportTimer = null
+  }
 })
 </script>
 
