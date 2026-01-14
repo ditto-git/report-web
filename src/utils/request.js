@@ -29,13 +29,19 @@ service.interceptors.request.use(
     //   // config.headers['token'] = token
     // }
     
+    // 如果是 FormData，删除 Content-Type，让浏览器自动设置（包含 boundary）
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+    }
+    
     // 打印请求信息（开发环境）
     if (import.meta.env.DEV) {
       console.log('请求配置:', {
         url: config.url,
         method: config.method,
         baseURL: config.baseURL,
-        fullURL: `${config.baseURL}${config.url}`
+        fullURL: `${config.baseURL}${config.url}`,
+        isFormData: config.data instanceof FormData
       })
     }
     

@@ -9,7 +9,7 @@
         </div>
       </div>
       
-      <div class="navbar-center">
+      <div class="navbar-left">
         <el-menu
           mode="horizontal"
           :default-active="activeMenu"
@@ -19,9 +19,15 @@
             <el-icon><HomeFilled /></el-icon>
             <span>首页</span>
           </el-menu-item>
+         
           <el-menu-item index="reports" @click="navigateToReportManagement">
-            <el-icon><Document /></el-icon>
+            <el-icon><Document/></el-icon>
             <span>报表管理</span>
+          </el-menu-item>
+
+          <el-menu-item index="employee-travel-record" @click="navigateToEmployeeTravel">
+            <el-icon><Document /></el-icon>
+            <span>人员出行备案</span>
           </el-menu-item>
         </el-menu>
       </div>
@@ -238,7 +244,7 @@
         <div class="footer-section">
           <h4>快速导航</h4>
           <el-link type="primary" @click="navigateToHome">系统首页</el-link>
-          <el-link type="primary" @click="navigateToReportManagement">报表总览</el-link>
+          <el-link type="primary" @click="navigateToReportManagement">报表管理</el-link>
         </div>
         
         <div class="footer-section">
@@ -280,6 +286,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { DEFAULT_DELAY } from 'element-plus/es/components/infinite-scroll/src/index.mjs'
 
 const router = useRouter()
 
@@ -438,7 +445,8 @@ const navigateToReportBrowse = () => {
 }
 
 const navigateToEmployeeTravel = () => {
-  router.push({ name: 'EmployeeTravelRecord' })
+  const route = router.resolve({ name: 'EmployeeTravelRecord' })
+  window.open(route.href, '_blank')
 }
 
 // 解析文件名（处理各种编码格式）

@@ -28,6 +28,8 @@
           <el-button 
             type="warning" 
             :icon="Download"
+            :loading="downloadingTemplate"
+            :disabled="downloadingTemplate"
             @click="handleDownloadTemplate"
           >
             模板下载
@@ -206,12 +208,16 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Upload, Refresh, Search, Download } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import request from '@/utils/request'
 
 // 加载状态
 const loading = ref(false)
 
 // 导入状态
 const importing = ref(false)
+
+// 模板下载状态
+const downloadingTemplate = ref(false)
 
 // 表格高度
 const tableHeight = ref(600)
@@ -244,7 +250,7 @@ const sortInfo = ref({
 // 搜索功能
 const handleSearch = () => {
   pagination.value.currentPage = 1
-  applyFilters()
+  fetchTableData() // 调用API查询
 }
 
 // 选中的部门（多选）
@@ -253,51 +259,35 @@ const selectedDepartments = ref([])
 // 部门筛选改变
 const handleDepartmentFilterChange = () => {
   pagination.value.currentPage = 1
-  // filteredTableData 会自动重新计算
+  fetchTableData() // 重新查询数据
 }
 
 // 清空部门筛选
 const clearDepartmentFilter = () => {
   selectedDepartments.value = []
   pagination.value.currentPage = 1
+  fetchTableData() // 重新查询数据
 }
 
-// 计算过滤后的数据（搜索 + 部门筛选）
+// 计算过滤后的数据（多部门筛选）
+// 注意：搜索和分页已由后端API处理，这里只处理多部门筛选
 const filteredTableData = computed(() => {
   let filtered = [...allTableData.value]
   
-  // 搜索过滤（姓名、身份证号、员工编号）
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.trim().toLowerCase()
-    filtered = filtered.filter(row => {
-      return (
-        (row.name && row.name.toLowerCase().includes(keyword)) ||
-        (row.idNumber && row.idNumber.toLowerCase().includes(keyword)) ||
-        (row.pernr && row.pernr.toLowerCase().includes(keyword))
-      )
-    })
-  }
-  
-  // 应用部门筛选（如果有）
-  if (selectedDepartments.value && selectedDepartments.value.length > 0) {
+  // 应用多部门筛选（如果选择了多个部门，后端只使用第一个，这里过滤其他部门）
+  if (selectedDepartments.value && selectedDepartments.value.length > 1) {
     filtered = filtered.filter(row => selectedDepartments.value.includes(row.org))
   }
   
-  // 更新总数
-  pagination.value.total = filtered.length
-  
-  // 应用分页
-  const start = (pagination.value.currentPage - 1) * pagination.value.pageSize
-  const end = start + pagination.value.pageSize
-  
-  // 返回当前页的数据
-  return filtered.slice(start, end)
+  // 后端已处理分页，直接返回数据
+  return filtered
 })
 
 // 应用所有过滤条件（搜索）- 用于重置分页
+// 注意：现在直接调用 fetchTableData，此函数保留用于兼容
 const applyFilters = () => {
   pagination.value.currentPage = 1
-  // filteredTableData 会自动重新计算
+  // filteredTableData 会自动重新计算（前端过滤）
 }
 
 // 刷新功能
@@ -311,13 +301,13 @@ const handleRefresh = () => {
 const handleSizeChange = (size) => {
   pagination.value.pageSize = size
   pagination.value.currentPage = 1
-  applyFilters()
+  fetchTableData() // 重新查询数据
 }
 
 // 页码改变
 const handlePageChange = (page) => {
   pagination.value.currentPage = page
-  applyFilters()
+  fetchTableData() // 重新查询数据
 }
 
 // 排序改变
@@ -327,65 +317,121 @@ const handleSortChange = ({ prop, order }) => {
 }
 
 
+// 解析搜索关键字，判断是姓名、身份证号还是员工编号
+const parseSearchKeyword = (keyword) => {
+  if (!keyword || !keyword.trim()) {
+    return { name: '', idNumber: '', pernr: '' }
+  }
+  
+  const trimmed = keyword.trim()
+  
+  // 判断是否为身份证号（18位数字，或15位数字）
+  if (/^\d{15}$|^\d{17}[\dXx]$/.test(trimmed)) {
+    return { name: '', idNumber: trimmed, pernr: '' }
+  }
+  
+  // 判断是否为员工编号（以 EMP 开头，或全数字）
+  if (/^EMP/i.test(trimmed) || /^[A-Z]{2,}\d+$/i.test(trimmed)) {
+    return { name: '', idNumber: '', pernr: trimmed }
+  }
+  
+  // 否则作为姓名
+  return { name: trimmed, idNumber: '', pernr: '' }
+}
+
 // 获取表格数据
 const fetchTableData = async () => {
   loading.value = true
   try {
+    // 解析搜索关键字
+    const searchParams = parseSearchKeyword(searchKeyword.value)
+    
     // 构建请求参数
-    const params = {
-      page: pagination.value.currentPage,
-      pageSize: pagination.value.pageSize,
-      sortProp: sortInfo.value.prop,
-      sortOrder: sortInfo.value.order
-    }
-
-    // TODO: 调用后端接口
-    // const response = await getEmployeeTravelList(params)
-    // tableData.value = response.data.list
-    // pagination.value.total = response.data.total
-
-    // 模拟数据
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const params = {}
     
-    const mockData = []
-    // 生成更多数据用于测试
-    const totalCount = 156
-    for (let i = 0; i < totalCount; i++) {
-      const index = i + 1
-      const deptIndex = Math.floor(i / 10) % 5 // 5个部门循环
-      mockData.push({
-        org: `部门${deptIndex + 1}`,
-        name: `员工${index}`,
-        idNumber: `3201001990010${String(10000 + index).slice(-4)}`,
-        pernr: `EMP${String(10000 + index).slice(-5)}`,
-        szAddress: '中国',
-        cxAddress: ['美国', '日本', '韩国', '新加坡'][i % 4],
-        date: `2024-0${(i % 9) + 1}-${String((i % 28) + 1).length === 1 ? '0' + (i % 28 + 1) : (i % 28 + 1)}`,
-        vehicle: ['飞机', '高铁', '汽车'][i % 3],
-        flightNumber: `FL${String(1000 + i).slice(-4)}`,
-        dep: ['北京', '上海', '广州', '深圳'][i % 4],
-        dst: ['纽约', '东京', '首尔', '新加坡'][i % 4],
-        province: ['广东省', '江苏省', '浙江省', '山东省'][i % 4],
-        city: ['广州', '南京', '杭州', '济南'][i % 4],
-        quit: index % 5 === 0 ? '无特殊情况' : ''
-      })
+    // 部门筛选（如果选择了部门，使用第一个部门，因为API只支持单个org）
+    if (selectedDepartments.value && selectedDepartments.value.length > 0) {
+      params.org = selectedDepartments.value[0] // 如果多选，使用第一个
     }
     
-    // 保存原始数据
-    allTableData.value = mockData
-    
-    // 生成部门筛选器选项
-    const departments = [...new Set(mockData.map(item => item.org))].sort()
-    departmentFilters.value = departments.map(dept => ({ text: dept, value: dept }))
-    
-    // 应用过滤和分页
-    pagination.value.total = mockData.length
-    applyFilters()
+    // 搜索参数（姓名、身份证号、员工编号）
+    if (searchParams.name) {
+      params.name = searchParams.name
+    }
+    if (searchParams.idNumber) {
+      params.idNumber = searchParams.idNumber
+    }
+    if (searchParams.pernr) {
+      params.pernr = searchParams.pernr
+    }
 
-    ElMessage.success('数据加载成功')
+    // 分页参数
+    params.pageNum = pagination.value.currentPage
+    params.pageSize = pagination.value.pageSize
+
+    // 调用后端接口
+    const data = await request({
+      url: '/TripFiling/query-tripFilings',
+      method: 'GET',
+      params: params
+    })
+
+    // 处理响应数据（新的分页格式）
+    let responseData = []
+    let total = 0
+    
+    if (data && data.records && Array.isArray(data.records)) {
+      // 新的分页响应格式
+      responseData = data.records
+      total = data.total || 0
+      
+      // 更新分页信息
+      pagination.value.total = total
+      pagination.value.currentPage = data.current || pagination.value.currentPage
+      pagination.value.pageSize = data.size || pagination.value.pageSize
+    } else if (Array.isArray(data)) {
+      // 兼容旧格式（直接返回数组）
+      responseData = data
+      total = data.length
+      pagination.value.total = total
+    } else if (data && Array.isArray(data.list)) {
+      // 兼容其他格式
+      responseData = data.list
+      total = data.total || data.list.length
+      pagination.value.total = total
+    } else if (data && Array.isArray(data.data)) {
+      responseData = data.data
+      total = data.total || data.data.length
+      pagination.value.total = total
+    }
+    
+    // 保存原始数据（后端已分页，直接使用）
+    allTableData.value = responseData
+    
+    // 生成部门筛选器选项（从返回的数据中提取）
+    // 注意：由于后端分页，这里只能从当前页数据提取部门，可能不完整
+    // 如果需要完整的部门列表，可能需要单独的接口
+    const departments = [...new Set(responseData.map(item => item.org).filter(Boolean))].sort()
+    // 合并到现有部门列表，避免丢失
+    const existingDepts = departmentFilters.value.map(d => d.value)
+    const newDepts = departments.filter(d => !existingDepts.includes(d))
+    if (newDepts.length > 0) {
+      departmentFilters.value = [
+        ...departmentFilters.value,
+        ...newDepts.map(dept => ({ text: dept, value: dept }))
+      ].sort((a, b) => a.text.localeCompare(b.text))
+    }
+
+    if (responseData.length > 0) {
+      ElMessage.success(`数据加载成功，共 ${total} 条`)
+    } else {
+      ElMessage.info('未查询到数据')
+    }
   } catch (error) {
-    ElMessage.error('数据加载失败：' + error.message)
-    tableData.value = []
+    console.error('数据加载失败:', error)
+    ElMessage.error('数据加载失败：' + (error.message || '请重试'))
+    allTableData.value = []
+    pagination.value.total = 0
   } finally {
     loading.value = false
   }
@@ -394,51 +440,111 @@ const fetchTableData = async () => {
 // 文件上传引用
 const uploadRef = ref(null)
 
+// 解析文件名（处理各种编码格式）
+const parseFileName = (contentDisposition) => {
+  if (!contentDisposition) {
+    return null
+  }
+
+  // 尝试匹配 filename*=UTF-8''encoded-name 格式（RFC 5987）
+  let fileNameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    try {
+      let decoded = decodeURIComponent(fileNameMatch[1])
+      // 如果解码后还包含编码字符，再次尝试解码
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      return decoded
+    } catch (e) {
+      console.warn('UTF-8文件名解码失败:', e)
+    }
+  }
+
+  // 尝试匹配 filename*=UTF-8''encoded-name; filename="fallback" 格式
+  fileNameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+);\s*filename="([^"]+)"/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    try {
+      let decoded = decodeURIComponent(fileNameMatch[1])
+      // 如果解码后还包含编码字符，再次尝试解码
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      return decoded
+    } catch (e) {
+      console.warn('UTF-8文件名解码失败:', e)
+    }
+  }
+
+  // 尝试匹配 filename="..." 格式
+  fileNameMatch = contentDisposition.match(/filename="([^"]+)"/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    return fileNameMatch[1]
+  }
+
+  // 尝试匹配 filename=... 格式（不带引号）
+  fileNameMatch = contentDisposition.match(/filename=([^;]+)/i)
+  if (fileNameMatch && fileNameMatch[1]) {
+    return fileNameMatch[1].trim()
+  }
+
+  return null
+}
+
 // 模板下载
 const handleDownloadTemplate = async () => {
-  try {
-    // TODO: 调用后端接口下载模板
-    // const response = await downloadEmployeeTravelTemplate()
-    // const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    // const url = window.URL.createObjectURL(blob)
-    // const link = document.createElement('a')
-    // link.href = url
-    // link.setAttribute('download', `员工出行备案导入模板_${new Date().getTime()}.xlsx`)
-    // document.body.appendChild(link)
-    // link.click()
-    // document.body.removeChild(link)
-    // window.URL.revokeObjectURL(url)
+  if (downloadingTemplate.value) {
+    return
+  }
 
-    // 生成模板文件（CSV格式，实际应该使用Excel库生成）
-    const templateHeaders = [
-      '部门',
-      '姓名',
-      '身份证号',
-      '员工编号',
-      '所在国家',
-      '出行国家（地区）',
-      '出发日期',
-      '交通工具',
-      '航班号（车次等）',
-      '出发地',
-      '目的地',
-      '省',
-      '地市',
-      '其他需要说明的情况'
-    ]
-    
-    // 添加示例数据行（可选）
-    const templateData = [
-      templateHeaders.join(','),
-      '部门1,张三,320100199001011234,EMP00001,中国,美国,2024-01-15,飞机,FL1234,北京,纽约,广东省,广州,无特殊情况'
-    ]
-    
-    const csvContent = '\uFEFF' + templateData.join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  downloadingTemplate.value = true
+
+  try {
+    // 调用后端接口下载模板
+    const response = await request({
+      url: '/TripFiling/getTemplate',
+      method: 'GET',
+      responseType: 'blob' // 文件下载需要 blob 类型
+    })
+
+    // 从响应头中获取文件名
+    let fileName = parseFileName(response.headers?.['content-disposition'] || response.headers?.['Content-Disposition'])
+
+    // 如果没有从响应头获取到文件名，使用默认文件名
+    if (!fileName) {
+      fileName = `员工出行备案导入模板_${new Date().getTime()}.xlsx`
+    }
+
+    // 确保文件名正确解码，处理可能的URL编码
+    let finalFileName = fileName
+    // 检查文件名是否包含URL编码字符（%开头）
+    if (finalFileName.includes('%')) {
+      try {
+        // 尝试解码URL编码
+        finalFileName = decodeURIComponent(finalFileName)
+        // 如果解码后还包含编码字符，可能需要再次解码（处理双重编码的情况）
+        if (finalFileName.includes('%')) {
+          try {
+            finalFileName = decodeURIComponent(finalFileName)
+          } catch (e2) {
+            // 第二次解码失败，使用第一次解码的结果
+            console.warn('文件名二次解码失败:', e2)
+          }
+        }
+      } catch (e) {
+        console.warn('文件名解码失败，使用原始文件名:', e)
+        // 解码失败，使用原始文件名
+      }
+    }
+
+    // 创建下载链接
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `员工出行备案导入模板_${new Date().getTime()}.csv`)
+    link.setAttribute('download', finalFileName)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -446,8 +552,10 @@ const handleDownloadTemplate = async () => {
 
     ElMessage.success('模板下载成功')
   } catch (error) {
-    ElMessage.error('模板下载失败：' + (error.message || '请重试'))
     console.error('模板下载失败:', error)
+    ElMessage.error('模板下载失败：' + (error.message || '请重试'))
+  } finally {
+    downloadingTemplate.value = false
   }
 }
 
@@ -473,30 +581,44 @@ const beforeUpload = (file) => {
 }
 
 // 文件上传处理
-const handleFileChange = async (file) => {
-  if (!beforeUpload(file.raw)) {
+const handleFileChange = async (uploadFile) => {
+  // 获取真正的文件对象（Element Plus upload 组件传递的是包装对象）
+  const file = uploadFile.raw || uploadFile
+  
+  if (!file || !(file instanceof File)) {
+    ElMessage.error('文件对象无效')
+    return
+  }
+  
+  if (!beforeUpload(file)) {
     return
   }
 
   importing.value = true
   try {
-    // TODO: 调用后端导入接口
-    // const formData = new FormData()
-    // formData.append('file', file.raw)
-    // const response = await importEmployeeTravel(formData)
+    // 创建 FormData 对象，用于文件上传
+    const formData = new FormData()
+    // 确保传递的是真正的 File 对象，字段名为 'file'（后端通过 request.getFile("file") 获取）
+    formData.append('file', file)
     
-    // 模拟导入
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 调用后端导入接口
+    await request({
+      url: '/TripFiling/readData',
+      method: 'POST', // 文件上传必须使用 POST
+      data: formData
+      // request.js 会自动处理 FormData，删除 Content-Type 让浏览器自动设置（包含 boundary）
+    })
     
     ElMessage.success('数据导入成功')
     
     // 导入成功后刷新列表
     searchKeyword.value = ''
+    selectedDepartments.value = []
     pagination.value.currentPage = 1
     fetchTableData()
   } catch (error) {
-    ElMessage.error('数据导入失败：' + (error.message || '请检查文件格式是否正确'))
     console.error('数据导入失败:', error)
+    ElMessage.error('数据导入失败：' + (error.message || '请检查文件格式是否正确'))
   } finally {
     importing.value = false
     // 清空文件选择，允许重复选择同一文件

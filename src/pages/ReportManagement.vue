@@ -1,7 +1,7 @@
 <template>
   <div class="report-management">
     <div class="header">
-      <h2>报表管理浏览</h2>
+      <h2>报表管理</h2>
       <div class="header-right">
         <div class="search-container">
           <el-input
