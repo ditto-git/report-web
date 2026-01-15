@@ -3,6 +3,8 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import VXETable from 'vxe-table'
+import 'vxe-table/lib/style.css'
 import router from './router'
 import App from './App.vue'
 
@@ -27,6 +29,9 @@ const app = createApp(App)
 app.use(ElementPlus, {
   locale: zhCn
 })
+
+// 注册 VXE Table
+app.use(VXETable)
 
 // 注册路由
 app.use(router)

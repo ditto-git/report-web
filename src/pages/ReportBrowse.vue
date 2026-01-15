@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="report-browse" v-loading="exporting" :element-loading-text="exporting ? `正在导出报表，请稍候... (${exportCountdown}秒)` : '正在导出报表，请稍候...'" element-loading-background="transparent">
     <div class="header">
       <h2>报表浏览</h2>
@@ -131,45 +131,41 @@
 
     <!-- 表格区域 -->
     <div class="table-wrapper">
-      <el-table 
+      <vxe-table 
         :data="tableData" 
         border 
-        stripe
-        v-loading="loading"
+        :loading="loading"
         style="width: 100%"
         class="report-browse-table"
         :height="tableHeight"
+        :max-height="tableHeight"
+        :sort-config="{ trigger: 'default', remote: true }"
         @sort-change="handleSortChange"
+        show-overflow="tooltip"
+        auto-resize
       >
-        <el-table-column 
-          type="index" 
-          label="序号" 
+        <vxe-column 
+          type="seq" 
+          title="序号" 
           width="100" 
           align="center"
-          :index="(index) => (pagination.currentPage - 1) * pagination.pageSize + index + 1"
+          :seq-config="seqConfig"
         />
-        <el-table-column 
+        <vxe-column 
           v-for="(column, index) in tableColumns" 
           :key="column.cellCode || index"
-          :prop="column.cellProperty"
-          :label="column.headContent"
+          :field="column.cellProperty"
+          :title="column.headContent"
           :min-width="getColumnWidth(column.headContent)"
-          :sortable="'custom'"
-          show-overflow-tooltip
+          sortable
         >
           <template #default="{ row }">
-            <el-tooltip
-              :content="row[column.cellProperty] || '-'"
-              placement="top"
-              :disabled="!row[column.cellProperty] || String(row[column.cellProperty]).length <= 20"
-            >
-              <span class="text-ellipsis">
-                {{ row[column.cellProperty] || '-' }}
-              </span>
-            </el-tooltip>
+            <span class="text-ellipsis">
+              {{ row[column.cellProperty] || '-' }}
+            </span>
           </template>
-        </el-table-column>
-      </el-table>
+        </vxe-column>
+      </vxe-table>
     </div>
 
     <!-- 分页区域 -->
@@ -189,7 +185,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Download, Refresh, ArrowUp, ArrowDown, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -261,6 +257,11 @@ const sortInfo = ref({
   order: ''
 })
 
+// 序号列配置（计算属性，确保响应式更新）
+const seqConfig = computed(() => ({
+  startIndex: (pagination.value.currentPage - 1) * pagination.value.pageSize
+}))
+
 // 计算列宽
 const getColumnWidth = (header) => {
   // 根据表头文字长度动态计算列宽
@@ -313,8 +314,9 @@ const handlePageChange = (page) => {
 }
 
 // 排序改变
-const handleSortChange = ({ prop, order }) => {
-  sortInfo.value = { prop, order }
+const handleSortChange = ({ column, property, order }) => {
+  // vxe-table 的排序事件参数格式：{ column, property, order, sortBy, sortList }
+  sortInfo.value = { prop: property, order: order || '' }
   fetchTableData()
 }
 
@@ -402,22 +404,32 @@ const fetchTableHeaders = async () => {
     })
     
     // 处理响应数据，提取 headContent 和 cellProperty
-    // 按 cellIndex 排序
+    // 按 cellIndex 排序，并过滤掉 cellProperty 为 "XH" 的表头
     const sortedData = Array.isArray(data) 
-      ? data.sort((a, b) => {
-          const indexA = parseInt(a.cellIndex || 0)
-          const indexB = parseInt(b.cellIndex || 0)
-          return indexA - indexB
-        })
+      ? data
+          .filter(item => item.cellProperty !== 'XH') // 过滤掉 cellProperty 为 "XH" 的表头
+          .sort((a, b) => {
+            const indexA = parseInt(a.cellIndex || 0)
+            const indexB = parseInt(b.cellIndex || 0)
+            return indexA - indexB
+          })
       : []
 
-    // 生成表头配置
-    tableColumns.value = sortedData.map(item => ({
-      headContent: item.headContent || '',
-      cellProperty: item.cellProperty || '',
-      cellIndex: item.cellIndex || '',
-      cellCode: item.cellCode || ''
-    }))
+    // 生成表头配置，清理 headContent 中的特殊字符（如换行符 \n、回车符 \r、制表符 \t 等）
+    tableColumns.value = sortedData.map(item => {
+      // 清理 headContent 中的特殊字符
+      let headContent = item.headContent || ''
+      // 移除换行符、回车符、制表符等特殊字符，替换为空格或直接移除
+      headContent = headContent.replace(/[\n\r\t]/g, '').trim()
+    
+      
+      return {
+        headContent: headContent || '',
+        cellProperty: item.cellProperty || '',
+        cellIndex: item.cellIndex || '',
+        cellCode: item.cellCode || ''
+      }
+    })
 
     // 提取表头显示文本（headContent）
     tableHeaders.value = tableColumns.value.map(col => col.headContent)
@@ -624,14 +636,18 @@ const navigateToFieldConfig = () => {
   window.open(route.href, '_blank')
 }
 
-// 计算表格高度
+// 计算表格高度（确保能显示11行：1行表头 + 10行数据，每行48px）
 const calculateTableHeight = () => {
+  // 每行高度 48px，11行总共 528px
+  const minTableHeight = 48 * 11 // 528px
   const windowHeight = window.innerHeight
   const headerHeight = 120
   const queryCardHeight = showQueryConditions.value ? 150 : 60
   const paginationHeight = 60
-  const padding = 40
-  tableHeight.value = windowHeight - headerHeight - queryCardHeight - paginationHeight - padding
+  const padding = 100
+  const calculatedHeight = windowHeight - headerHeight - queryCardHeight - paginationHeight - padding
+  // 取计算高度和最小高度的较大值，确保至少能显示11行
+  tableHeight.value = Math.max(calculatedHeight, minTableHeight)
 }
 
 // 监听窗口大小变化
@@ -650,6 +666,9 @@ const initData = async () => {
     await fetchTableHeaders()
     // 表头加载成功后再加载数据
     await fetchTableData()
+    // 数据加载完成后重新计算表格高度
+    await nextTick()
+    calculateTableHeight()
   } catch (error) {
     console.error('初始化数据失败:', error)
   }
@@ -787,8 +806,42 @@ onUnmounted(() => {
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #c1c1c1 #f1f1f1;
+  scrollbar-color: transparent transparent; /* 默认透明 */
   margin-bottom: clamp(1rem, 2.5vw, 1.5rem);
+  transition: scrollbar-color 0.3s;
+}
+
+.table-wrapper:hover {
+  scrollbar-color: #c1c1c1 #f1f1f1; /* 悬停时显示 */
+}
+
+/* Webkit 浏览器滚动条 */
+.table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: transparent; /* 默认透明 */
+  border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: transparent; /* 默认透明 */
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.table-wrapper:hover::-webkit-scrollbar-track {
+  background: #f1f1f1; /* 悬停时显示 */
+}
+
+.table-wrapper:hover::-webkit-scrollbar-thumb {
+  background: #c1c1c1; /* 悬停时显示 */
+}
+
+.table-wrapper:hover::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .report-browse-table {
@@ -796,16 +849,285 @@ onUnmounted(() => {
   font-size: clamp(1rem, 1.2vw, 1.125rem);
 }
 
-.report-browse-table :deep(.el-table__body-wrapper) {
+/* 表格整体样式 - 类似 Element Plus */
+.report-browse-table :deep(.vxe-table) {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 100% !important;
+}
+
+/* 确保表格容器高度正确 */
+.report-browse-table {
+  height: 100%;
+}
+
+/* 表头样式 - 白色背景 */
+.report-browse-table :deep(.vxe-table--header-wrapper) {
+  overflow-x: hidden;
+  background-color: #ffffff;
+}
+
+.report-browse-table :deep(.vxe-header--row) {
+  background-color: #ffffff;
+}
+
+.report-browse-table :deep(.vxe-header--column) {
+  background-color: #ffffff;
+  border-right: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
+  font-weight: 500;
+  color: #606266;
+  padding: 13.5px 19.6875px; /* 与数据行保持一致 */
+  height: 48px; /* 固定行高，确保表头和数据行高度一致 */
+  box-sizing: border-box;
+}
+
+.report-browse-table :deep(.vxe-header--column:last-child) {
+  border-right: none;
+}
+
+/* 表头单元格内容 */
+.report-browse-table :deep(.vxe-header--column .vxe-cell) {
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  line-height: 21px; /* 14px * 1.5 = 21px，与数据行保持一致 */
+  height: 21px;
+  display: flex;
+  align-items: center;
+}
+
+/* 表格主体样式 */
+.report-browse-table :deep(.vxe-table--body-wrapper) {
   overflow-x: auto;
 }
 
-.report-browse-table :deep(.el-table__header-wrapper) {
-  overflow-x: hidden;
+.report-browse-table :deep(.vxe-body--row) {
+  transition: background-color 0.25s;
+  height: 48px; /* 固定行高，确保每行高度一致 */
 }
 
-.report-browse-table :deep(.el-table__cell) {
-  padding: clamp(0.5rem, 1.2vw, 1rem) clamp(0.5rem, 1.5vw, 1.25rem);
+/* 斑马纹样式 - 从灰色开始，依次轮替：灰-白-灰-白... */
+/* 第1行（奇数）：灰色，第2行（偶数）：白色，第3行（奇数）：灰色，以此类推 */
+.report-browse-table :deep(.vxe-body--row:nth-child(odd)) {
+  background-color: #fafafa !important; /* 奇数行：灰色 */
+}
+
+.report-browse-table :deep(.vxe-body--row:nth-child(even)) {
+  background-color: #ffffff !important; /* 偶数行：白色 */
+}
+
+/* 悬停效果 - 根据行的原始颜色显示不同的悬停色 */
+.report-browse-table :deep(.vxe-body--row:nth-child(even):hover) {
+  background-color: #f0f2f5 !important; /* 偶数行（白色）悬停时显示浅灰色 */
+}
+
+.report-browse-table :deep(.vxe-body--row:nth-child(odd):hover) {
+  background-color: #ebeef5 !important; /* 奇数行（灰色）悬停时显示稍深的灰色 */
+}
+
+/* 单元格样式 - 与表头高度一致 */
+.report-browse-table :deep(.vxe-body--column) {
+  border-right: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
+  padding: 13.5px 19.6875px; /* 与表头保持一致 */
+  height: 48px; /* 固定行高，确保表头和数据行高度一致 */
+  box-sizing: border-box;
+}
+
+.report-browse-table :deep(.vxe-body--column:last-child) {
+  border-right: none;
+}
+
+.report-browse-table :deep(.vxe-cell) {
+  padding: 0;
+  font-size: 14px;
+  color: #606266;
+  line-height: 21px; /* 14px * 1.5 = 21px，与表头保持一致 */
+  height: 21px;
+  display: flex;
+  align-items: center;
+}
+
+/* 序号列样式 */
+.report-browse-table :deep(.vxe-header--column.type--seq) {
+  background-color: #ffffff; /* 表头序号列：白色 */
+  text-align: center;
+}
+
+.report-browse-table :deep(.vxe-body--column.type--seq) {
+  text-align: center;
+}
+
+/* 确保序号列也遵循斑马纹：灰-白-灰-白... */
+.report-browse-table :deep(.vxe-body--row:nth-child(even) .vxe-body--column.type--seq) {
+  background-color: #ffffff !important; /* 偶数行序号列：白色 */
+}
+
+.report-browse-table :deep(.vxe-body--row:nth-child(odd) .vxe-body--column.type--seq) {
+  background-color: #f5f7fa !important; /* 奇数行序号列：灰色 */
+}
+
+/* 排序图标样式 - 类似 Element Plus */
+.report-browse-table :deep(.vxe-header--column .vxe-sort) {
+  color: #c0c4cc;
+  font-size: 12px;
+}
+
+.report-browse-table :deep(.vxe-header--column.col--sortable:hover .vxe-sort) {
+  color: #909399;
+}
+
+.report-browse-table :deep(.vxe-header--column.col--sort-asc .vxe-sort),
+.report-browse-table :deep(.vxe-header--column.col--sort-desc .vxe-sort) {
+  color: #409eff;
+}
+
+/* 边框样式优化 */
+.report-browse-table :deep(.vxe-table--border-line) {
+  border-color: #ebeef5;
+}
+
+/* 滚动条样式 - 自动隐藏，只在悬停时显示 */
+.report-browse-table :deep(.vxe-table--body-wrapper) {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: transparent transparent; /* Firefox - 默认透明 */
+}
+
+.report-browse-table :deep(.vxe-table--body-wrapper:hover) {
+  scrollbar-color: #c1c1c1 #f5f5f5; /* Firefox - 悬停时显示 */
+}
+
+/* Webkit 浏览器（Chrome, Safari, Edge） */
+.report-browse-table :deep(.vxe-table--body-wrapper)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.report-browse-table :deep(.vxe-table--body-wrapper)::-webkit-scrollbar-track {
+  background: transparent; /* 默认透明 */
+  border-radius: 4px;
+}
+
+.report-browse-table :deep(.vxe-table--body-wrapper)::-webkit-scrollbar-thumb {
+  background: transparent; /* 默认透明 */
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.report-browse-table :deep(.vxe-table--body-wrapper:hover)::-webkit-scrollbar-track {
+  background: #f5f5f5; /* 悬停时显示 */
+}
+
+.report-browse-table :deep(.vxe-table--body-wrapper:hover)::-webkit-scrollbar-thumb {
+  background: #c1c1c1; /* 悬停时显示 */
+}
+
+.report-browse-table :deep(.vxe-table--body-wrapper:hover)::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 加载状态遮罩 - 类似 Element Plus */
+.report-browse-table :deep(.vxe-table--loading) {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.report-browse-table :deep(.vxe-table--loading-wrapper) {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* 空数据样式 - 类似 Element Plus */
+.report-browse-table :deep(.vxe-table--empty-block) {
+  padding: 40px 0;
+  color: #909399;
+  font-size: 14px;
+}
+
+/* 选中行样式（如果需要） */
+.report-browse-table :deep(.vxe-body--row.row--checked) {
+  background-color: #ecf5ff;
+}
+
+.report-browse-table :deep(.vxe-body--row.row--checked:hover) {
+  background-color: #d9ecff !important;
+}
+
+/* 确保序号列在悬停时也保持正确的背景色 */
+.report-browse-table :deep(.vxe-body--row:nth-child(even):hover .vxe-body--column.type--seq) {
+  background-color: #f0f2f5 !important; /* 偶数行序号列悬停时显示浅灰色 */
+}
+
+.report-browse-table :deep(.vxe-body--row:nth-child(odd):hover .vxe-body--column.type--seq) {
+  background-color: #ebeef5 !important; /* 奇数行序号列悬停时显示稍深的灰色 */
+}
+
+/* 表格边框圆角 */
+.report-browse-table :deep(.vxe-table--header) {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.report-browse-table :deep(.vxe-table--footer) {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* 优化单元格对齐 */
+.report-browse-table :deep(.vxe-cell--title) {
+  font-weight: 500;
+}
+
+/* 工具提示样式优化 */
+.report-browse-table :deep(.vxe-tooltip--wrapper) {
+  font-size: 12px;
+  background-color: #303133;
+  color: #fff;
+  border-radius: 4px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 表格第一行和最后一行的边框优化 */
+.report-browse-table :deep(.vxe-body--row:first-child .vxe-body--column) {
+  border-top: none;
+}
+
+.report-browse-table :deep(.vxe-body--row:last-child .vxe-body--column) {
+  border-bottom: 1px solid #ebeef5;
+}
+
+/* 表头第一列和最后一列的边框优化 */
+.report-browse-table :deep(.vxe-header--column:first-child) {
+  border-left: none;
+}
+
+.report-browse-table :deep(.vxe-body--column:first-child) {
+  border-left: none;
+}
+
+/* 确保表格内容垂直居中 */
+.report-browse-table :deep(.vxe-cell) {
+  display: flex;
+  align-items: center;
+  min-height: 23px;
+}
+
+/* 优化序号列的对齐 */
+.report-browse-table :deep(.vxe-body--column.type--seq .vxe-cell) {
+  justify-content: center;
+}
+
+/* 表格整体阴影效果（可选，更接近 Element Plus） */
+.report-browse-table :deep(.vxe-table) {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式字体大小 */
+.report-browse-table :deep(.vxe-header--column .vxe-cell),
+.report-browse-table :deep(.vxe-body--column .vxe-cell) {
+  font-size: clamp(0.875rem, 1.2vw, 1rem);
 }
 
 /* 文本溢出省略 */
@@ -1016,4 +1338,5 @@ onUnmounted(() => {
   }
 }
 </style>
+
 

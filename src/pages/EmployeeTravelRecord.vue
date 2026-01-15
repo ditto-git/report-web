@@ -73,9 +73,6 @@
           v-model="selectedDepartments"
           placeholder="请选择部门"
           clearable
-          multiple
-          collapse-tags
-          collapse-tags-tooltip
           class="department-select"
           @change="handleDepartmentFilterChange"
         >
@@ -87,7 +84,7 @@
           />
         </el-select>
         <el-button
-          v-if="selectedDepartments && selectedDepartments.length > 0"
+          v-if="selectedDepartments"
           text
           type="primary"
           size="small"
@@ -130,16 +127,16 @@
         <el-table-column 
           prop="org" 
           label="部门" 
+          fixed="left"
           min-width="120"
-          align="left"
           show-overflow-tooltip
         />
 
         <!-- 人员基本信息 - 多级表头 -->
-        <el-table-column label="人员基本信息" align="left">
-          <el-table-column prop="name" label="姓名" min-width="100" align="left" show-overflow-tooltip />
-          <el-table-column prop="idNumber" label="身份证号" min-width="160" align="left" show-overflow-tooltip />
-          <el-table-column prop="pernr" label="员工编号" min-width="120" align="left" show-overflow-tooltip />
+        <el-table-column label="人员基本信息" fixed="left">
+          <el-table-column prop="name" label="姓名" min-width="100"  show-overflow-tooltip />
+          <el-table-column prop="idNumber" label="身份证号" min-width="170"  show-overflow-tooltip />
+          <el-table-column prop="pernr" label="员工编号" min-width="120" show-overflow-tooltip />
         </el-table-column>
 
         <!-- 所在国家 -->
@@ -155,25 +152,25 @@
         <el-table-column 
           prop="cxAddress" 
           label="出行国家（地区）" 
-          min-width="150"
+          min-width="180"
           align="left"
           show-overflow-tooltip
         />
 
         <!-- 拟安排行程相关信息 - 多级表头 -->
-        <el-table-column label="拟安排行程相关信息" align="left">
+        <el-table-column label="拟安排行程相关信息" align="center">
           <!-- 出行信息 - 三级表头 -->
-          <el-table-column label="出行信息" align="left">
-            <el-table-column prop="date" label="出发日期" min-width="120" align="left" show-overflow-tooltip />
-            <el-table-column prop="vehicle" label="交通工具" min-width="100" align="left" show-overflow-tooltip />
-            <el-table-column prop="flightNumber" label="航班号（车次等）" min-width="150" align="left" show-overflow-tooltip />
-            <el-table-column prop="dep" label="出发地" min-width="120" align="left" show-overflow-tooltip />
-            <el-table-column prop="dst" label="目的地" min-width="120" align="left" show-overflow-tooltip />
+          <el-table-column label="出行信息" align="center">
+            <el-table-column prop="date" label="出发日期" min-width="120"  show-overflow-tooltip />
+            <el-table-column prop="vehicle" label="交通工具" min-width="120"  show-overflow-tooltip />
+            <el-table-column prop="flightNumber" label="航班号（车次等）" min-width="180"  show-overflow-tooltip />
+            <el-table-column prop="dep" label="出发地" min-width="120"  show-overflow-tooltip />
+            <el-table-column prop="dst" label="目的地" min-width="120"  show-overflow-tooltip />
           </el-table-column>
           <!-- 居住地 - 三级表头 -->
-          <el-table-column label="居住地" align="left">
-            <el-table-column prop="province" label="省" min-width="100" align="left" show-overflow-tooltip />
-            <el-table-column prop="city" label="地市" min-width="100" align="left" show-overflow-tooltip />
+          <el-table-column label="居住地" >
+            <el-table-column prop="province" label="省份" min-width="100"  show-overflow-tooltip />
+            <el-table-column prop="city" label="地市" min-width="100"  show-overflow-tooltip />
           </el-table-column>
         </el-table-column>
 
@@ -253,8 +250,8 @@ const handleSearch = () => {
   fetchTableData() // 调用API查询
 }
 
-// 选中的部门（多选）
-const selectedDepartments = ref([])
+// 选中的部门（单选）
+const selectedDepartments = ref('')
 
 // 部门筛选改变
 const handleDepartmentFilterChange = () => {
@@ -264,23 +261,16 @@ const handleDepartmentFilterChange = () => {
 
 // 清空部门筛选
 const clearDepartmentFilter = () => {
-  selectedDepartments.value = []
+  selectedDepartments.value = ''
   pagination.value.currentPage = 1
   fetchTableData() // 重新查询数据
 }
 
-// 计算过滤后的数据（多部门筛选）
-// 注意：搜索和分页已由后端API处理，这里只处理多部门筛选
+// 计算过滤后的数据
+// 注意：搜索和分页已由后端API处理，这里不需要额外过滤
 const filteredTableData = computed(() => {
-  let filtered = [...allTableData.value]
-  
-  // 应用多部门筛选（如果选择了多个部门，后端只使用第一个，这里过滤其他部门）
-  if (selectedDepartments.value && selectedDepartments.value.length > 1) {
-    filtered = filtered.filter(row => selectedDepartments.value.includes(row.org))
-  }
-  
-  // 后端已处理分页，直接返回数据
-  return filtered
+  // 后端已处理分页和筛选，直接返回数据
+  return allTableData.value
 })
 
 // 应用所有过滤条件（搜索）- 用于重置分页
@@ -293,7 +283,7 @@ const applyFilters = () => {
 // 刷新功能
 const handleRefresh = () => {
   searchKeyword.value = ''
-  selectedDepartments.value = []
+  selectedDepartments.value = ''
   fetchTableData()
 }
 
@@ -317,52 +307,21 @@ const handleSortChange = ({ prop, order }) => {
 }
 
 
-// 解析搜索关键字，判断是姓名、身份证号还是员工编号
-const parseSearchKeyword = (keyword) => {
-  if (!keyword || !keyword.trim()) {
-    return { name: '', idNumber: '', pernr: '' }
-  }
-  
-  const trimmed = keyword.trim()
-  
-  // 判断是否为身份证号（18位数字，或15位数字）
-  if (/^\d{15}$|^\d{17}[\dXx]$/.test(trimmed)) {
-    return { name: '', idNumber: trimmed, pernr: '' }
-  }
-  
-  // 判断是否为员工编号（以 EMP 开头，或全数字）
-  if (/^EMP/i.test(trimmed) || /^[A-Z]{2,}\d+$/i.test(trimmed)) {
-    return { name: '', idNumber: '', pernr: trimmed }
-  }
-  
-  // 否则作为姓名
-  return { name: trimmed, idNumber: '', pernr: '' }
-}
-
 // 获取表格数据
 const fetchTableData = async () => {
   loading.value = true
   try {
-    // 解析搜索关键字
-    const searchParams = parseSearchKeyword(searchKeyword.value)
-    
     // 构建请求参数
     const params = {}
     
-    // 部门筛选（如果选择了部门，使用第一个部门，因为API只支持单个org）
-    if (selectedDepartments.value && selectedDepartments.value.length > 0) {
-      params.org = selectedDepartments.value[0] // 如果多选，使用第一个
+    // 部门筛选（单选）
+    if (selectedDepartments.value) {
+      params.org = selectedDepartments.value
     }
     
-    // 搜索参数（姓名、身份证号、员工编号）
-    if (searchParams.name) {
-      params.name = searchParams.name
-    }
-    if (searchParams.idNumber) {
-      params.idNumber = searchParams.idNumber
-    }
-    if (searchParams.pernr) {
-      params.pernr = searchParams.pernr
+    // 搜索参数（统一使用 name 参数）
+    if (searchKeyword.value && searchKeyword.value.trim()) {
+      params.name = searchKeyword.value.trim()
     }
 
     // 分页参数
@@ -613,7 +572,7 @@ const handleFileChange = async (uploadFile) => {
     
     // 导入成功后刷新列表
     searchKeyword.value = ''
-    selectedDepartments.value = []
+    selectedDepartments.value = ''
     pagination.value.currentPage = 1
     fetchTableData()
   } catch (error) {
@@ -860,21 +819,44 @@ onUnmounted(() => {
   scrollbar-width: thin;
   scrollbar-color: #c1c1c1 #f1f1f1;
   margin-bottom: clamp(1rem, 2.5vw, 1.5rem);
-}
+  }
 
 .travel-record-table {
   width: 100%;
   font-size: clamp(0.875rem, 1.2vw, 1rem);
 }
 
-.travel-record-table :deep(.el-table__body-wrapper) {
-  overflow-x: auto;
-}
+
 
 .travel-record-table :deep(.el-table__header-wrapper) {
-  overflow-x: hidden;
+  overflow-x: hidden; /* 还原 x 轴滚动条 */
+  overflow-y: scroll; /* 添加 y 轴滚动条 */
+  scrollbar-width: 2px; /* Firefox - y 轴滚动条宽度 4px（增加2px） */
+  scrollbar-color: transparent transparent; /* Firefox - 隐藏滚动条 */
 }
 
+/* 表头的 y 轴滚动条样式 */
+.travel-record-table :deep(.el-table__header-wrapper)::-webkit-scrollbar {
+  width: 2px; /* y 轴滚动条宽度 4px（增加2px，从2px增加到4px） */
+  height: 0;
+}
+
+.travel-record-table :deep(.el-table__header-wrapper)::-webkit-scrollbar-track {
+  background: transparent; /* 隐藏滚动条轨道 */
+}
+
+.travel-record-table :deep(.el-table__header-wrapper)::-webkit-scrollbar-thumb {
+  background: transparent; /* 隐藏滚动条滑块 */
+}
+
+.travel-record-table :deep(.el-table__header-wrapper)::-webkit-scrollbar-track {
+  background: transparent; /* 隐藏滚动条轨道 */
+}
+
+.travel-record-table :deep(.el-table__header-wrapper)::-webkit-scrollbar-thumb {
+  background: transparent; /* 隐藏滚动条滑块 */
+}
+ 
 /* 表格单元格样式 */
 .travel-record-table :deep(.el-table__cell) {
   padding: clamp(0.5rem, 1.2vw, 0.875rem) clamp(0.5rem, 1.5vw, 1rem);
@@ -895,8 +877,9 @@ onUnmounted(() => {
   text-align: left !important;
 }
 
+/* 表头单元格全部居中 */
 .travel-record-table :deep(.el-table__header th) {
-  text-align: left !important;
+  text-align: center !important;
 }
 
 /* 单元格内容居左 */
@@ -907,12 +890,12 @@ onUnmounted(() => {
   justify-content: flex-start;
 }
 
-/* 表头单元格居左 */
+/* 表头单元格内容全部居中 */
 .travel-record-table :deep(.el-table__header .cell) {
-  text-align: left !important;
+  text-align: center !important;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 /* 序号列保持居中（第一列，通过 align="center" 属性） */
